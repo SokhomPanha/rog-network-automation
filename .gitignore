@@ -4,7 +4,34 @@
 /archive/legacy/**
 !/archive/legacy/README.md
 /reports/**
-/inventory/group_vars/all/vault.yml
+
+# Vault and credential files (encrypted local copies only).
+/inventory/group_vars/*/vault.yml
+/inventory/vault.yml
+*vault*.yml
+*vault*.yaml
+*vault-password*
+*vault_password*
+.vault_pass*
+.vault-pass*
+*credentials*
+*credential*
+*.env
+.env.*
+
+# Private keys and certificates.
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+id_rsa*
+id_ed25519*
+id_ecdsa*
+
+# Device configuration and operational exports.
 *.backup
 *.rsc
 *.cfg
@@ -17,22 +44,18 @@
 *.bak
 *.tmp
 *.before-*
+
+# Token/password-containing local files.
+*.secret
+*.secrets
+*.token
+*.tokens
+
+# Python and automation cache state.
 __pycache__/
 .vscode/
 .venv/
 .pytest_cache/
 .ansible/
-.vault-pass*
-.vault_pass*
-*vault-password*
-*vault_password*
-.env
-*.key
-*.pem
-*.p12
-*.pfx
-!devices/**/templates/*.j2
 
-*vault.yml
-*vault-password*
-*vault_password*
+!devices/**/templates/*.j2
