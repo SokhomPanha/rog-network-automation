@@ -1,0 +1,52 @@
+---
+- name: Back up the FortiGate with the existing HTTPAPI method
+  hosts: fortigate
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  vars:
+    fortigate_backup_timestamp: "{{ now(utc=true, fmt='%Y%m%dT%H%M%SZ') }}"
+  pre_tasks:
+    - name: Require intentional device backup access
+      ansible.builtin.assert:
+        that:
+          - allow_device_connections | default(false) | bool
+          - not ansible_check_mode
+        fail_msg: Set allow_device_connections=true for a real read-only device backup.
+      tags: always
+  tasks:
+    - name: Create protected backup directory
+      ansible.builtin.file:
+        path: "{{ rog_backup_root }}"
+        state: directory
+        mode: '0700'
+      delegate_to: localhost
+      tags: backup
+    - name: Download complete FortiGate configuration
+      fortinet.fortios.fortios_monitor:
+        access_token: "{{ fortigate_api_token }}"
+        selector: backup.system.config
+        vdom: "{{ vdom | default('root') }}"
+        params:
+          scope: global
+          destination: file
+          file_format: fos
+      register: fortigate_backup_result
+      changed_when: false
+      no_log: true
+      tags: backup
+    - name: Validate returned backup data
+      ansible.builtin.assert:
+        that:
+          - fortigate_backup_result.meta.raw is string
+          - fortigate_backup_result.meta.raw | length > 1000
+      no_log: true
+      tags: backup
+    - name: Save complete backup securely on the controller
+      ansible.builtin.copy:
+        content: "{{ fortigate_backup_result.meta.raw }}"
+        dest: "{{ rog_backup_root }}/{{ inventory_hostname }}-{{ fortigate_backup_timestamp }}.conf"
+        mode: '0600'
+      delegate_to: localhost
+      no_log: true
+      tags: backup

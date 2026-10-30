@@ -1,0 +1,44 @@
+---
+- name: Restore original MikroTik Staff gateway behavior
+  hosts: mikrotik
+  gather_facts: false
+  vars_files:
+  - vars.yml
+  tags:
+  - never
+  - staff_hotspot_rollback
+  pre_tasks:
+  - name: Require both the named tag and explicit change authorization
+    ansible.builtin.assert:
+      that:
+      - rog_allow_live_changes | default(false) | bool
+      - enable_staff_hotspot_architecture_change | bool
+      - '"staff_hotspot_rollback" in ansible_run_tags'
+      - not ansible_check_mode
+      fail_msg: Review docs/STAFF_HOTSPOT_ARCHITECTURE.md before opting into this operation.
+    tags:
+    - always
+  tasks:
+  - name: Restore only original Staff DHCP options
+    community.routeros.command:
+      commands:
+      - /ip dhcp-server network set [find where address="192.168.20.0/24"] gateway=192.168.20.1 dns-server=8.8.8.8,1.1.1.1
+    changed_when: true
+  - name: Disable Staff service and end its sessions only
+    community.routeros.command:
+      commands:
+      - /ip hotspot active remove [find where server={{ staff_hotspot_server | community.routeros.quote_argument_value
+        }}]
+      - /ip hotspot disable [find where name={{ staff_hotspot_server | community.routeros.quote_argument_value }}]
+    changed_when: true
+  - name: Remove only new Staff path enforcement rules
+    community.routeros.command:
+      commands:
+      - /ip firewall filter remove [find where comment~"^ROG-STAFF-"]
+      - /ipv6 firewall filter remove [find where comment~"^ROG-STAFF-"]
+      - /ip firewall nat remove [find where comment="ROG-STAFF-NO-SRCNAT"]
+    changed_when: true
+  - name: Explain remaining coordinated rollback
+    ansible.builtin.debug:
+      msg: Now run Core staff_hotspot_rollback.yml to restore the original SVI ACL and remove both /25 routes; renew
+        Staff leases. Guest service and vouchers were retained.

@@ -1,0 +1,47 @@
+---
+- name: Collect actual read-only Cisco operational evidence
+  cisco.ios.ios_command:
+    commands: "{{ cisco_verify_commands }}"
+  register: cisco_verification
+  changed_when: false
+  no_log: true
+- name: Create private evidence directory
+  ansible.builtin.file:
+    path: "{{ rog_evidence_root }}"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+- name: Choose a unique evidence name
+  ansible.builtin.set_fact:
+    cisco_evidence_filename: "{{ inventory_hostname }}-{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%S%NZ') }}-evidence.txt"
+- name: Save actual command output with source commands
+  ansible.builtin.copy:
+    content: |
+      Device: {{ inventory_hostname }}
+      Collected UTC: {{ now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ') }}
+      This is device output, not proof of client/browser/RF success.
+      {% for command in cisco_verify_commands %}
+
+      ===== {{ command }} =====
+      {{ cisco_verification.stdout[loop.index0] }}
+      {% endfor %}
+    dest: "{{ rog_evidence_root }}/{{ cisco_evidence_filename }}"
+    mode: '0600'
+  delegate_to: localhost
+  no_log: true
+  diff: false
+- name: Calculate evidence checksum
+  ansible.builtin.stat:
+    path: "{{ rog_evidence_root }}/{{ cisco_evidence_filename }}"
+    checksum_algorithm: sha256
+  delegate_to: localhost
+  register: cisco_evidence_stat
+- name: Store evidence checksum
+  ansible.builtin.copy:
+    content: "{{ cisco_evidence_stat.stat.checksum }}  {{ cisco_evidence_filename }}\n"
+    dest: "{{ rog_evidence_root }}/{{ cisco_evidence_filename }}.sha256"
+    mode: '0600'
+  delegate_to: localhost
+- name: Report collected evidence without asserting test success
+  ansible.builtin.debug:
+    msg: "Read {{ cisco_verify_commands | length }} commands; review {{ rog_evidence_root }}/{{ cisco_evidence_filename }} against docs/FINAL_VALIDATION.md."

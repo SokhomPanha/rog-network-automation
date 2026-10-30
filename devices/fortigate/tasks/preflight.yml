@@ -1,0 +1,69 @@
+---
+- name: Read current firewall policies
+  fortinet.fortios.fortios_configuration_fact:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    selector: firewall_policy
+  register: fortigate_policy_facts
+  no_log: true
+
+- name: Read current address objects
+  fortinet.fortios.fortios_configuration_fact:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    selector: firewall_address
+  register: fortigate_address_facts
+  no_log: true
+
+- name: Refuse policy drift or a broad fallback allow rule
+  ansible.builtin.assert:
+    that:
+      - fortigate_policy_facts.meta.results | length == 3
+      - fortigate_policy_facts.meta.results | map(attribute='policyid') | sort | list == [1, 10, 11]
+    fail_msg: >-
+      Expected exactly saved policy IDs 1, 10, 11. Destination exclusion relies on
+      implicit deny with no other Staff allow policy. Review any policy drift first.
+
+- name: Validate existing policies and source separation
+  ansible.builtin.assert:
+    that:
+      - current_policy.name == item.name
+      - current_policy.action == 'accept'
+      - current_policy.status | default('enable') == 'enable'
+      - current_policy.nat == 'enable'
+      - current_policy.srcaddr | map(attribute='name') | sort | list == item.sources | sort
+      - current_policy.srcintf | map(attribute='name') | list == [fortigate_internal_interface]
+      - current_policy.dstintf | map(attribute='name') | list == [fortigate_internet_interface]
+      - current_policy['srcaddr-negate'] | default('disable') == 'disable'
+      - current_policy['internet-service-src'] | default('disable') == 'disable'
+      - current_policy['internet-service'] | default('disable') == 'disable'
+      - current_policy.service | map(attribute='name') | list == ['ALL']
+      - current_policy['service-negate'] | default('disable') == 'disable'
+      - item.policyid == 11 or current_policy.dstaddr | map(attribute='name') | list == ['all']
+      - item.policyid == 11 or current_policy['dstaddr-negate'] | default('disable') == 'disable'
+    fail_msg: A saved policy differs; review its source, NAT and interface settings before continuing.
+  vars:
+    current_policy: "{{ fortigate_policy_facts.meta.results | selectattr('policyid', 'equalto', item.policyid) | first }}"
+  loop: "{{ fortigate_expected_policies }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Confirm each active source object still represents the expected subnet
+  ansible.builtin.assert:
+    that:
+      - fortigate_address_facts.meta.results | selectattr('name', 'equalto', item.name) | list | length == 1
+      - current_address.type | default('ipmask') == 'ipmask'
+      - current_address.subnet == item.subnet
+    fail_msg: Address-object drift could allow Staff to bypass filtering through another policy.
+  vars:
+    current_address: "{{ fortigate_address_facts.meta.results | selectattr('name', 'equalto', item.name) | first }}"
+  loop: "{{ fortigate_expected_networks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Select the Staff policy without exposing complete configuration
+  ansible.builtin.set_fact:
+    fortigate_current_staff_policy: "{{ fortigate_policy_facts.meta.results | selectattr('policyid', 'equalto', fortigate_staff_policy_id) | first }}"
+  no_log: true

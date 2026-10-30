@@ -1,0 +1,8 @@
+---
+ansible_connection: ssh
+ansible_user: "ansibleadmin"
+ansible_password: "{{ vault_monitoring_ssh_password }}"
+ansible_become: true
+ansible_become_method: sudo
+ansible_become_password: "{{ vault_monitoring_become_password }}"
+ansible_python_interpreter: /usr/bin/python3.9

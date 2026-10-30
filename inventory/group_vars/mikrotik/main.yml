@@ -1,0 +1,11 @@
+---
+ansible_connection: ansible.netcommon.network_cli
+ansible_network_os: community.routeros.routeros
+ansible_user: ansible
+
+ansible_network_cli_ssh_type: libssh
+ansible_private_key_file: /home/sudoku/.ssh/mt_hotspot_ansible
+ansible_libssh_look_for_keys: false
+
+ansible_command_timeout: 120
+ansible_connect_timeout: 30

@@ -1,0 +1,23 @@
+---
+- name: Verify wlc using the established Cisco connection
+  hosts: wireless_ac
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  vars:
+    cisco_verify_commands: "{{ wlc_verify_commands }}"
+  tags: [verify]
+  pre_tasks:
+    - name: Require intentional device connections
+      ansible.builtin.assert:
+        that:
+          - allow_device_connections | default(false) | bool
+          - not ansible_check_mode
+        fail_msg: "Set allow_device_connections=true to collect real device data. Check mode is not verification."
+      tags: [always]
+  tasks:
+    - name: Verify Cisco device
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../shared/tasks/cisco_verify.yml"
+      when:
+        - allow_device_connections | default(false) | bool
+        - not ansible_check_mode

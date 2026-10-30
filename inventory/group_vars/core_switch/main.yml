@@ -1,0 +1,6 @@
+---
+ansible_user: "{{ vault_core_username }}"
+ansible_password: "{{ vault_core_password }}"
+
+# rogauto already has privilege level 15
+ansible_become: false

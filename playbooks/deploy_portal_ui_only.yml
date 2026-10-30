@@ -1,0 +1,85 @@
+---
+- name: Deploy only Guest and Staff portal UI
+  hosts: mikrotik
+  gather_facts: false
+
+  pre_tasks:
+    - name: Require explicit live-change approval
+      ansible.builtin.assert:
+        that:
+          - rog_allow_live_changes | default(false) | bool
+        fail_msg: "Set rog_allow_live_changes=true to deploy portal UI."
+
+  tasks:
+    - name: Verify critical live hotspot helper files exist
+      community.routeros.command:
+        commands:
+          - /file print count-only where name="hotspot/md5.js"
+          - /file print count-only where name="hotspot-staff/md5.js"
+          - /file print count-only where name="hotspot-staff/redirect.html"
+          - /file print count-only where name="hotspot-staff/rlogin.html"
+      register: hotspot_helpers
+      changed_when: false
+
+    - name: Show helper-file check
+      ansible.builtin.debug:
+        var: hotspot_helpers.stdout
+
+    - name: Upload Guest portal UI files only
+      ansible.builtin.command:
+        argv:
+          - scp
+          - -O
+          - -i
+          - "{{ ansible_private_key_file }}"
+          - -o
+          - IdentitiesOnly=yes
+          - -o
+          - StrictHostKeyChecking=yes
+          - "{{ playbook_dir }}/../devices/mikrotik/files/guest_hotspot/{{ item }}"
+          - "{{ ansible_user }}@{{ ansible_host }}:hotspot/{{ item }}"
+      delegate_to: localhost
+      loop:
+        - login.html
+        - alogin.html
+        - status.html
+        - logout.html
+        - error.html
+        - rgc-style-v2.css
+        - portal-style.css
+
+    - name: Upload Staff portal UI files only
+      ansible.builtin.command:
+        argv:
+          - scp
+          - -O
+          - -i
+          - "{{ ansible_private_key_file }}"
+          - -o
+          - IdentitiesOnly=yes
+          - -o
+          - StrictHostKeyChecking=yes
+          - "{{ playbook_dir }}/../devices/mikrotik/files/staff_hotspot/{{ item }}"
+          - "{{ ansible_user }}@{{ ansible_host }}:hotspot-staff/{{ item }}"
+      delegate_to: localhost
+      loop:
+        - login.html
+        - alogin.html
+        - status.html
+        - logout.html
+        - error.html
+        - portal-style.css
+
+    - name: Verify portal files after upload
+      community.routeros.command:
+        commands:
+          - /file print where name~"hotspot/"
+          - /file print where name~"hotspot-staff/"
+          - /ip hotspot profile print detail where name="guest-hotspot-profile"
+          - /ip hotspot profile print detail where name="ROG-STAFF-HOTSPOT-PROFILE"
+      register: portal_verify
+      changed_when: false
+
+    - name: Display verification
+      ansible.builtin.debug:
+        var: portal_verify.stdout_lines

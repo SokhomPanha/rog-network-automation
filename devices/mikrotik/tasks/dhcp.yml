@@ -1,0 +1,73 @@
+---
+- name: Configure MikroTik DNS resolver
+  community.routeros.command:
+    commands:
+    - /ip dns set servers=8.8.8.8,1.1.1.1 allow-remote-requests=yes
+  changed_when: true
+- name: Check existing DHCP servers
+  community.routeros.command:
+    commands:
+    - /ip dhcp-server print count-only where name={{ item.name }}
+  loop: '{{ dhcp_servers }}'
+  register: dhcp_server_checks
+  changed_when: false
+  loop_control:
+    label: '{{ item.name }}'
+- name: Create missing DHCP servers
+  community.routeros.command:
+    commands:
+    - /ip dhcp-server add name={{ item.item.name }} interface={{ item.item.interface }} address-pool={{ item.item.pool
+      }} lease-time={{ item.item.lease_time }} disabled=no
+  loop: '{{ dhcp_server_checks.results }}'
+  when: item.stdout_lines[0][-1] | trim == "0"
+  loop_control:
+    label: '{{ item.item.name }}'
+  changed_when: true
+- name: Enforce DHCP-server settings
+  community.routeros.command:
+    commands:
+    - /ip dhcp-server set [find where name={{ item.name }}] interface={{ item.interface }} address-pool={{ item.pool
+      }} lease-time={{ item.lease_time }} disabled=no
+  loop: '{{ dhcp_servers }}'
+  changed_when: true
+  loop_control:
+    label: '{{ item.name }}'
+- name: Check existing DHCP networks
+  community.routeros.command:
+    commands:
+    - /ip dhcp-server network print count-only where address={{ item.address }}
+  loop: '{{ dhcp_networks }}'
+  register: dhcp_network_checks
+  changed_when: false
+  loop_control:
+    label: '{{ item.address }}'
+- name: Create missing DHCP networks
+  community.routeros.command:
+    commands:
+    - /ip dhcp-server network add address={{ item.item.address }} gateway={{ item.item.gateway }} dns-server={{
+      item.item.dns }} comment="{{ item.item.comment }}"
+  loop: '{{ dhcp_network_checks.results }}'
+  when: item.stdout_lines[0][-1] | trim == "0"
+  loop_control:
+    label: '{{ item.item.address }}'
+  changed_when: true
+- name: Enforce DHCP-network settings
+  community.routeros.command:
+    commands:
+    - /ip dhcp-server network set [find where address={{ item.address }}] gateway={{ item.gateway }} dns-server={{
+      item.dns }} comment="{{ item.comment }}"
+  loop: '{{ dhcp_networks }}'
+  changed_when: true
+  loop_control:
+    label: '{{ item.address }}'
+- name: Read DHCP configuration
+  community.routeros.command:
+    commands:
+    - /ip dhcp-server print detail without-paging
+    - /ip dhcp-server network print detail without-paging
+    - /ip dns print
+  register: dhcp_configuration
+  changed_when: false
+- name: Display DHCP configuration
+  ansible.builtin.debug:
+    var: dhcp_configuration.stdout_lines

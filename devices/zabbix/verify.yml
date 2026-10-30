@@ -1,0 +1,52 @@
+---
+- name: Inspect the existing monitoring service without modifying it
+  hosts: monitoring
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Require deliberate device access
+      ansible.builtin.assert:
+        that: allow_device_connections | default(false) | bool
+        fail_msg: "Set allow_device_connections=true to run live read-only verification."
+      tags: [always]
+  tasks:
+    - name: Query unauthenticated Zabbix API version
+      ansible.builtin.uri:
+        url: "{{ zabbix_api_url }}"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: apiinfo.version
+          params: {}
+          id: 1
+        validate_certs: "{{ zabbix_validate_certs }}"
+        return_content: true
+      delegate_to: localhost
+      register: zabbix_version
+      changed_when: false
+      tags: [verify, monitoring]
+    - name: Require an actual API result
+      ansible.builtin.assert:
+        that: zabbix_version.json.result is defined
+        fail_msg: "Confirm zabbix_web_url and the existing frontend installation."
+      tags: [verify, monitoring]
+    - name: Read server service state
+      ansible.builtin.service_facts:
+      tags: [verify, monitoring]
+    - name: Check the selected installed services
+      ansible.builtin.assert:
+        that:
+          - item in ansible_facts.services
+          - ansible_facts.services[item].state == 'running'
+        fail_msg: "Inspect existing services; verify.yml does not install or restart them."
+      loop: "{{ zabbix_required_services }}"
+      tags: [verify, monitoring]
+    - name: Explain verification scope
+      ansible.builtin.debug:
+        msg: >-
+          API version and selected service state were checked. Device item freshness,
+          SNMP, syslog, NTP, Telegram problem/recovery delivery and security triggers
+          still need the checks in docs/FINAL_VALIDATION.md.
+      tags: [verify, monitoring]

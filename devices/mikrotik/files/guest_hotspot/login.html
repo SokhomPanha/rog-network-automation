@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Guest Wi-Fi | Wi-Fi Access</title>
+  <link rel="stylesheet" href="portal-style.css">
+  $(if chap-id)<script src="md5.js"></script>$(endif)
+</head>
+<body>
+  <main class="page">
+    <section class="card" aria-labelledby="page-title">
+      <p class="eyebrow">Wi-Fi Access</p>
+      <h1 id="page-title">Guest Wi-Fi</h1>
+      <p class="subtitle">Enter your access code to continue.</p>
+
+      $(if error)<div class="alert" role="alert">$(error)</div>$(endif)
+
+      <form name="login" action="$(link-login-only)" method="post" onsubmit="return submitVoucher()">
+        <input type="hidden" name="dst" value="$(link-orig)">
+        <input type="hidden" name="popup" value="true">
+        <input type="hidden" name="username" id="username">
+        <input type="hidden" name="password" id="password">
+        <label for="voucher">Voucher Code</label>
+        <input id="voucher" type="text" inputmode="text" autocomplete="one-time-code" required autofocus>
+        <button type="submit">Connect</button>
+      </form>
+
+    </section>
+  </main>
+
+  $(if chap-id)
+  <form name="sendin" action="$(link-login-only)" method="post" hidden>
+    <input type="hidden" name="username">
+    <input type="hidden" name="password">
+    <input type="hidden" name="dst" value="$(link-orig)">
+    <input type="hidden" name="popup" value="true">
+  </form>
+  $(endif)
+
+  <script>
+    function submitVoucher() {
+      const code = document.getElementById('voucher').value.trim();
+      if (!code) return false;
+      $(if chap-id)
+      document.sendin.username.value = code;
+      document.sendin.password.value = hexMD5('$(chap-id)' + code + '$(chap-challenge)');
+      document.sendin.submit();
+      return false;
+      $(else)
+      document.getElementById('username').value = code;
+      document.getElementById('password').value = code;
+      return true;
+      $(endif)
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Connection Status | Guest Wi-Fi</title>
+  <link rel="stylesheet" href="portal-style.css">
+</head>
+<body>
+  <main class="page">
+    <section class="card" aria-labelledby="page-title">
+      <p class="eyebrow">Wi-Fi Access</p>
+      <h1 id="page-title">Guest Wi-Fi</h1>
+      <p class="subtitle">Your connection is active.</p>
+      <dl class="status-grid">
+        <div><dt>Voucher</dt><dd>$(username)</dd></div>
+        <div><dt>IP Address</dt><dd>$(ip)</dd></div>
+        <div><dt>Connected</dt><dd>$(uptime)</dd></div>
+        <div><dt>Time Remaining</dt><dd>$(session-time-left)</dd></div>
+        <div><dt>Downloaded</dt><dd>$(bytes-out-nice)</dd></div>
+        <div><dt>Uploaded</dt><dd>$(bytes-in-nice)</dd></div>
+      </dl>
+      <form action="$(link-logout)" name="logout" method="post">
+        <button type="submit" class="button secondary">Disconnect</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,81 @@
+---
+- name: Maintain Guest voucher only
+  hosts: mikrotik
+  gather_facts: false
+  vars_files:
+  - vars.yml
+  pre_tasks:
+  - name: Require explicit authorization before any device connection
+    ansible.builtin.assert:
+      that:
+      - rog_allow_live_changes | default(false) | bool
+      - not ansible_check_mode
+      fail_msg: Live changes are disabled. Review the device README and deployment runbook.
+    tags:
+    - always
+  tasks:
+  - name: Verify voucher code is loaded
+    ansible.builtin.assert:
+      that:
+      - hotspot_coupon_code is defined
+      - hotspot_coupon_code | length > 0
+      fail_msg: Hotspot coupon code was not loaded
+      success_msg: Hotspot coupon code loaded
+    no_log: true
+  - name: Check existing voucher
+    community.routeros.command:
+      commands:
+      - /ip hotspot user print count-only where name={{ hotspot_coupon_code | community.routeros.quote_argument_value
+        }}
+    register: voucher_check
+    changed_when: false
+    no_log: true
+  - name: Create voucher when missing
+    community.routeros.command:
+      commands:
+      - /ip hotspot user add name={{ hotspot_coupon_code | community.routeros.quote_argument_value }} password={{
+        hotspot_coupon_code | community.routeros.quote_argument_value }} profile=guest-profile server=guest-hotspot
+        limit-uptime=0s comment="Guest coupon" disabled=no
+    when: voucher_check.stdout_lines[0][-1] | trim == "0"
+    no_log: true
+    changed_when: true
+  - name: Enforce voucher settings
+    community.routeros.command:
+      commands:
+      - /ip hotspot user set [find where name={{ hotspot_coupon_code | community.routeros.quote_argument_value }}]
+        password={{ hotspot_coupon_code | community.routeros.quote_argument_value }} profile=guest-profile server=guest-hotspot
+        limit-uptime=0s comment="Guest coupon" disabled=no
+    changed_when: true
+    no_log: true
+  - name: Reset voucher counters for a new controlled test
+    community.routeros.command:
+      commands:
+      - /ip hotspot user reset-counters [find where name={{ hotspot_coupon_code | community.routeros.quote_argument_value
+        }}]
+    when: reset_voucher_counters | bool
+    changed_when: true
+    no_log: true
+  - name: Verify voucher exists
+    community.routeros.command:
+      commands:
+      - /ip hotspot user print count-only where name={{ hotspot_coupon_code | community.routeros.quote_argument_value
+        }}
+    register: voucher_verification
+    changed_when: false
+    no_log: true
+  - name: Validate voucher
+    ansible.builtin.assert:
+      that: voucher_verification.stdout_lines[0][-1] | trim == "1"
+      fail_msg: Hotspot voucher was not created
+      success_msg: Hotspot voucher created successfully
+    no_log: true
+  - name: Display safe voucher result
+    ansible.builtin.debug:
+      msg:
+      - Guest voucher configuration successful
+      - 'Profile: guest-profile'
+      - 'Bandwidth: 5 Mbps download / 5 Mbps upload'
+      - 'Session timeout: 1 hour; total uptime limit: unlimited'
+      - 'Shared users: 60'
+  vars:
+    reset_voucher_counters: false

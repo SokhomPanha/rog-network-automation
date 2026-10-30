@@ -1,0 +1,6 @@
+---
+- import_playbook: ../devices/core-switch/verify.yml
+- import_playbook: ../devices/fortigate/verify.yml
+- import_playbook: ../devices/mikrotik/verify.yml
+- import_playbook: ../devices/wlc/verify.yml
+- import_playbook: ../devices/zabbix/verify.yml

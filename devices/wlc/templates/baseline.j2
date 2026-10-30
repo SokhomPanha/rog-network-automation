@@ -1,0 +1,28 @@
+hostname WLC-ROG-TOWER
+{% for vlan in wlc_vlans %}
+vlan {{ vlan.id }}
+ name {{ vlan.name }}
+{% endfor %}
+interface GigabitEthernet1
+ switchport mode trunk
+ switchport trunk allowed vlan 100,200,500
+interface Vlan100
+ description WIRELESS-MANAGEMENT-INTERFACE
+ ip address 192.168.10.2 255.255.255.0
+ no shutdown
+wireless management interface Vlan100
+wireless profile policy {{ wlc_staff_policy }}
+ vlan 200
+ no shutdown
+wireless profile policy {{ wlc_guest_policy }}
+ vlan 500
+ no shutdown
+wireless tag policy {{ wlc_policy_tag }}
+ wlan {{ wlc_staff_profile }} policy {{ wlc_staff_policy }}
+ wlan {{ wlc_guest_profile }} policy {{ wlc_guest_policy }}
+wlan {{ wlc_guest_profile }} {{ wlc_guest_wlan_id }} {{ wlc_guest_profile }}
+ no security wpa
+ no security wpa wpa2
+ no security wpa wpa2 ciphers aes
+ no security wpa akm dot1x
+ no shutdown

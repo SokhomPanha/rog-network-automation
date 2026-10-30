@@ -1,0 +1,85 @@
+---
+- name: Restrict management services
+  community.routeros.command:
+    commands:
+    - /ip service set [find where name={{ item }}] address={{ management_subnet }}
+  loop:
+  - ssh
+  - www
+  - winbox
+  changed_when: true
+- name: Disable insecure and unused services
+  community.routeros.command:
+    commands:
+    - /ip service disable [find where name={{ item }}]
+  loop:
+  - telnet
+  - ftp
+  - api
+  - api-ssl
+  - www-ssl
+  changed_when: true
+- name: Create internal-network address list entries
+  community.routeros.command:
+    commands:
+    - :if ([:len [/ip firewall address-list find where list="ROG-INTERNAL" and address="{{ item.address }}"]] =
+      0) do={ /ip firewall address-list add list="ROG-INTERNAL" address={{ item.address }} comment="{{ item.comment
+      }}"}
+  loop: '{{ internal_networks }}'
+  loop_control:
+    label: '{{ item.comment }}'
+  changed_when: true
+- name: Create firewall rules without duplicates
+  community.routeros.command:
+    commands:
+    - :if ([:len [/ip firewall filter find where comment="{{ item.comment }}"]] = 0) do={ /ip firewall filter add
+      {{ item.rule }} comment="{{ item.comment }}"}
+  loop:
+  - comment: ROG-INPUT-ACCEPT-ESTABLISHED
+    rule: chain=input action=accept connection-state=established,related
+  - comment: ROG-INPUT-DROP-INVALID
+    rule: chain=input action=drop connection-state=invalid
+  - comment: ROG-GUEST-ALLOW-DHCP
+    rule: chain=input action=accept in-interface=vlan500-guest protocol=udp dst-port=67,68
+  - comment: ROG-GUEST-ALLOW-DNS-UDP
+    rule: chain=input action=accept in-interface=vlan500-guest protocol=udp dst-port=53
+  - comment: ROG-GUEST-ALLOW-DNS-TCP
+    rule: chain=input action=accept in-interface=vlan500-guest protocol=tcp dst-port=53
+  - comment: ROG-GUEST-BLOCK-ROUTER
+    rule: chain=input action=drop in-interface=vlan500-guest
+  - comment: ROG-FORWARD-ACCEPT-ESTABLISHED
+    rule: chain=forward action=accept connection-state=established,related
+  - comment: ROG-FORWARD-DROP-INVALID
+    rule: chain=forward action=drop connection-state=invalid
+  - comment: ROG-GUEST-BLOCK-INTERNAL
+    rule: chain=forward action=drop in-interface=vlan500-guest dst-address-list=ROG-INTERNAL log=yes log-prefix=ROG-GUEST-DROP
+  loop_control:
+    label: '{{ item.comment }}'
+  changed_when: true
+- name: Configure Cambodia time zone
+  community.routeros.command:
+    commands:
+    - /system clock set time-zone-name=Asia/Phnom_Penh
+  changed_when: true
+- name: Enable NTP client
+  community.routeros.command:
+    commands:
+    - /system ntp client set enabled=yes mode=unicast
+  changed_when: true
+- name: Add NTP servers without duplicates
+  community.routeros.command:
+    commands:
+    - :if ([:len [/system ntp client servers find where address="{{ item }}"]] = 0) do={ /system ntp client servers
+      add address="{{ item }}"}
+  loop:
+  - time.cloudflare.com
+  - time.google.com
+  changed_when: true
+- name: Configure future VLAN 600 remote Syslog action
+  community.routeros.command:
+    commands:
+    - :if ([:len [/system logging action find where name="rog-remote"]] = 0) do={ /system logging action add name=rog-remote
+      target=remote remote={{ remote_syslog_server }} remote-port=514} else={ /system logging action set [find where
+      name=rog-remote] remote={{ remote_syslog_server }} remote-port=514}
+  when: remote_syslog_enabled | bool
+  changed_when: true

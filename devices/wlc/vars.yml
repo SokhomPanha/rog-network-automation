@@ -1,0 +1,32 @@
+---
+# Newer operational evidence supersedes the older pre-migration full backup.
+wlc_vlans:
+  - {id: 100, name: WIRELESS-MANAGEMENT}
+  - {id: 200, name: staff-vlan}
+  - {id: 500, name: GUEST-HOTSPOT}
+wlc_staff_profile: ROG_STAFF_WIFI
+wlc_staff_wlan_id: 5
+wlc_staff_policy: ROG-STAFF-POLICY
+wlc_guest_profile: ROG-GUEST
+wlc_guest_wlan_id: 4
+wlc_guest_policy: ROG-GUEST-POLICY
+wlc_policy_tag: ROG-POLICY-TAG
+wlc_monitoring_server: 192.168.60.10
+# Empty preserves the existing country configuration; never guess a radio country.
+wlc_country_code: ''
+wlc_verify_commands:
+  - show privilege
+  - show ip interface brief
+  - show ip route 0.0.0.0
+  - show vlan brief
+  - show interfaces trunk
+  - show wireless interface summary
+  - show wlan summary
+  - show wireless profile policy detailed ROG-STAFF-POLICY
+  - show wireless profile policy detailed ROG-GUEST-POLICY
+  - show wireless tag policy detailed ROG-POLICY-TAG
+  - show wireless country configured
+  - show ap summary
+  - show wireless client summary
+  - show ntp associations
+  - show access-lists ZABBIX-SNMP

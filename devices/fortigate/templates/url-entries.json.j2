@@ -1,0 +1,5 @@
+[
+{% for domain in fortigate_staff_block_domains %}
+  {"id": {{ loop.index }}, "url": {{ ('^([a-zA-Z0-9-]+\\.)*' ~ (domain | regex_escape) ~ '(:[0-9]+)?(/|$)') | to_json }}, "type": "regex", "action": "block", "status": "enable"}{{ ',' if not loop.last else '' }}
+{% endfor %}
+]

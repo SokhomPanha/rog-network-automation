@@ -1,0 +1,51 @@
+---
+# Saved baseline: FGT-ROG-TOWER-20260922T093430Z.conf. Preserve its three EVAL policies.
+fortigate_internal_interface: port3
+fortigate_internet_interface: virtual-wan-link
+fortigate_staff_policy_id: 11
+fortigate_staff_address: ROG-STAFF
+fortigate_staff_block_group: ROG-STAFF-BLOCKED-DOMAINS
+fortigate_staff_filter_method: fqdn
+# Set only after a real TLS/QUIC capability test of this exact EVAL appliance.
+fortigate_staff_tls_inspection_confirmed: false
+fortigate_staff_dns_visibility_confirmed: false
+fortigate_staff_webfilter_name: ROG-STAFF-WEB-FILTER
+fortigate_staff_ssl_profile: ROG-STAFF-CERT-INSPECTION
+fortigate_staff_urlfilter_id: 200
+fortigate_staff_rollback_file: "{{ rog_backup_root }}/{{ inventory_hostname }}-staff-filter-before.json"
+fortigate_expected_networks:
+  - {name: ROG-AP-MANAGEMENT, subnet: '192.168.10.0 255.255.255.0'}
+  - {name: ROG-STAFF, subnet: '192.168.20.0 255.255.255.0'}
+  - {name: ROG-GUEST-HOTSPOT, subnet: '192.168.50.0 255.255.255.0'}
+  - {name: ROG-SECURITY-SERVERS, subnet: '192.168.60.0 255.255.255.0'}
+  - {name: ROG-LAB-MANAGEMENT, subnet: '192.168.71.0 255.255.255.0'}
+  - {name: ROG-MIKROTIK-TRANSIT, subnet: '192.168.99.0 255.255.255.252'}
+fortigate_expected_policies:
+  - policyid: 1
+    name: ROG-GUEST-INTERNET
+    sources: [ROG-GUEST-HOTSPOT]
+  - policyid: 10
+    name: ROG-MANAGEMENT-SERVERS-INTERNET
+    sources: [ROG-AP-MANAGEMENT, ROG-LAB-MANAGEMENT, ROG-SECURITY-SERVERS, ROG-MIKROTIK-TRANSIT]
+  - policyid: 11
+    name: ROG-STAFF-INTERNET
+    sources: [ROG-STAFF]
+# Dedicated service domains only; do not block whole shared providers such as Akamai/CloudFront.
+# Each entry creates the apex plus *.domain, covering mobile/web/CDN subdomains.
+# This is a maintained lab list, not a complete application signature database.
+fortigate_staff_block_domains:
+  - facebook.com
+  - facebook.net
+  - fb.com
+  - fb.me
+  - fbcdn.net
+  - fbsbx.com
+  - messenger.com
+  - m.me
+  - tiktok.com
+  - tiktokv.com
+  - tiktokcdn.com
+  - tiktokcdn-us.com
+  - tiktokapis.com
+  - musical.ly
+  - muscdn.com

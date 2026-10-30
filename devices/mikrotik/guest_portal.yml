@@ -1,0 +1,89 @@
+---
+- name: Deploy RGC MikroTik Hotspot portal
+  hosts: mikrotik
+  gather_facts: false
+  vars:
+    portal_dir: '{{ playbook_dir }}/files/guest_hotspot'
+    portal_files:
+    - login.html
+    - alogin.html
+    - status.html
+    - logout.html
+    - error.html
+    - rgc-style-v2.css
+    - portal-style.css
+    portal_images:
+    - rgc-logo.png
+    hotspot_profile_name: guest-hotspot-profile
+    portal_ssh_key: '{{ ansible_private_key_file }}'
+  tasks:
+  - name: Create pre-deployment configuration export
+    community.routeros.command:
+      commands:
+      - /export file=before-rgc-portal
+    changed_when: true
+  - name: Confirm original CHAP script exists
+    community.routeros.command:
+      commands:
+      - /file print count-only where name="hotspot/md5.js"
+    register: md5_check
+    changed_when: false
+  - name: Stop if md5.js is missing
+    ansible.builtin.assert:
+      that: md5_check.stdout[0] | trim == "1"
+      fail_msg: Restore hotspot/md5.js before deployment.
+  - name: Upload portal pages and stylesheet
+    ansible.builtin.command:
+      argv:
+      - scp
+      - -O
+      - -i
+      - '{{ portal_ssh_key }}'
+      - -o
+      - IdentitiesOnly=yes
+      - -o
+      - StrictHostKeyChecking=accept-new
+      - '{{ portal_dir }}/{{ item }}'
+      - '{{ ansible_user }}@{{ ansible_host }}:hotspot/{{ item }}'
+    loop: '{{ portal_files }}'
+    delegate_to: localhost
+  - name: Upload portal images
+    ansible.builtin.command:
+      argv:
+      - scp
+      - -O
+      - -i
+      - '{{ portal_ssh_key }}'
+      - -o
+      - IdentitiesOnly=yes
+      - -o
+      - StrictHostKeyChecking=accept-new
+      - '{{ portal_dir }}/img/{{ item }}'
+      - '{{ ansible_user }}@{{ ansible_host }}:hotspot/img/{{ item }}'
+    loop: '{{ portal_images }}'
+    delegate_to: localhost
+  - name: Use the deployed portal directory
+    community.routeros.command:
+      commands:
+      - /ip hotspot profile set [find where name="{{ hotspot_profile_name }}"] html-directory=hotspot
+    changed_when: true
+  - name: Verify portal files
+    community.routeros.command:
+      commands:
+      - /file print where name~"hotspot/(login|alogin|status|logout|error|style|img/rgc-logo)"
+    register: portal_check
+    changed_when: false
+  - name: Display verification
+    ansible.builtin.debug:
+      var: portal_check.stdout_lines
+  pre_tasks:
+  - name: Require explicit authorization before any device connection
+    ansible.builtin.assert:
+      that:
+      - rog_allow_live_changes | default(false) | bool
+      - not ansible_check_mode
+      fail_msg: Live changes are disabled. Review the device README and deployment runbook.
+    tags:
+    - always
+  tags:
+  - guest_hotspot

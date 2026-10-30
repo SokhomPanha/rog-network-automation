@@ -1,0 +1,66 @@
+---
+- name: Collect MikroTik verification evidence
+  hosts: mikrotik
+  gather_facts: false
+  vars_files:
+  - vars.yml
+  pre_tasks:
+  - name: Require explicit device connections
+    ansible.builtin.assert:
+      that:
+      - allow_device_connections | default(false) | bool
+    tags:
+    - always
+  tasks:
+  - name: Read MikroTik configuration and connectivity evidence
+    community.routeros.command:
+      commands:
+      - /system identity print
+      - /system resource print
+      - /interface vlan print detail without-paging
+      - /ip address print detail without-paging
+      - /ip dhcp-server print detail without-paging
+      - /ip dhcp-server network print detail without-paging
+      - /ip pool print detail without-paging
+      - /ip route print detail without-paging
+      - /ip hotspot print detail without-paging
+      - /ip hotspot active print count-only
+      - /ip firewall filter print stats without-paging
+      - /system ntp client print
+      - /system logging print without-paging
+      - /ping 192.168.99.1 count=3
+      - /ping 8.8.8.8 src-address=192.168.99.2 count=3
+    changed_when: false
+    register: mikrotik_state
+    no_log: true
+  - name: Validate baseline objects are represented in the collected output
+    ansible.builtin.assert:
+      that:
+      - mikrotik_state.stdout | length == 15
+      - '''vlan200-ground'' in mikrotik_state.stdout[2]'
+      - '''vlan500-guest'' in mikrotik_state.stdout[2]'
+      - '''192.168.20.2/24'' in mikrotik_state.stdout[3]'
+      - '''192.168.50.1/24'' in mikrotik_state.stdout[3]'
+      - '''192.168.99.2/30'' in mikrotik_state.stdout[3]'
+      - '''guest-hotspot'' in mikrotik_state.stdout[8]'
+      fail_msg: Required baseline objects were not found; inspect private evidence. This is not a client authentication
+        test.
+  - name: Create private evidence directory
+    ansible.builtin.file:
+      path: '{{ rog_evidence_root }}/mikrotik'
+      state: directory
+      mode: '0700'
+    delegate_to: localhost
+  - name: Save raw evidence privately for operator review
+    ansible.builtin.copy:
+      dest: '{{ rog_evidence_root }}/mikrotik/{{ inventory_hostname }}-{{ now(utc=true, fmt="%Y%m%dT%H%M%SZ") }}.json'
+      content: '{{ mikrotik_state.stdout | to_nice_json }}'
+      mode: '0600'
+    delegate_to: localhost
+    no_log: true
+  - name: Explain verification scope
+    ansible.builtin.debug:
+      msg: Device evidence collected privately. Review ping loss, Guest service state and docs/STAFF_HOTSPOT_TEST.md
+        using real clients.
+  tags:
+  - verify

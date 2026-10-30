@@ -1,0 +1,86 @@
+---
+enable_staff_hotspot_preparation: true
+enable_staff_hotspot_architecture_change: false
+staff_hotspot_core_cutover_confirmed: false
+staff_hotspot_preflight_confirmed: false
+restrict_guest_vouchers_to_guest_server: true
+staff_hotspot_server: ROG-STAFF-HOTSPOT
+staff_hotspot_profile: ROG-STAFF-HOTSPOT-PROFILE
+staff_hotspot_user_profile: ROG-STAFF-USERS
+staff_hotspot_interface: vlan200-ground
+staff_hotspot_dns_name: login.staff-rog.lab
+staff_hotspot_directory: hotspot-staff
+staff_hotspot_users: '{{ vault_staff_hotspot_users | default([]) }}'
+staff_hotspot_login_by: http-chap
+staff_hotspot_ssl_certificate: none
+staff_hotspot_syslog_enabled: false
+remote_syslog_enabled: false
+remote_syslog_server: 192.168.60.10
+portal_ssh_key: '{{ ansible_private_key_file }}'
+staff_protected_subnets:
+- 192.168.10.0/24
+- 192.168.50.0/24
+- 192.168.60.0/24
+- 192.168.71.0/24
+- 192.168.99.0/30
+mikrotik_vlans:
+- name: vlan200-ground
+  vlan_id: 200
+  comment: staff-vlan
+- name: vlan500-guest
+  vlan_id: 500
+  comment: Guest hotspot
+- name: vlan900-transit
+  vlan_id: 900
+  comment: Transit to core switch
+mikrotik_vlan_addresses:
+- interface: vlan200-ground
+  address: 192.168.20.2/24
+  comment: Ground DHCP server
+- interface: vlan500-guest
+  address: 192.168.50.1/24
+  comment: Guest hotspot gateway
+- interface: vlan900-transit
+  address: 192.168.99.2/30
+  comment: Transit to core switch
+mikrotik_pools:
+- name: pool-ground
+  ranges: 192.168.20.20-192.168.20.239
+- name: pool-guest
+  ranges: 192.168.50.150-192.168.50.209
+dhcp_servers:
+- name: dhcp-ground
+  interface: vlan200-ground
+  pool: pool-ground
+  lease_time: 2h
+- name: dhcp-guest
+  interface: vlan500-guest
+  pool: pool-guest
+  lease_time: 1h
+dhcp_networks:
+- address: 192.168.20.0/24
+  gateway: 192.168.20.1
+  dns: 8.8.8.8,1.1.1.1
+  comment: Unified staff - all floors
+- address: 192.168.50.0/24
+  gateway: 192.168.50.1
+  dns: 192.168.50.1
+  comment: Guest hotspot
+route_comment: Ansible route through core
+hotspot_profile: guest-hotspot-profile
+hotspot_server: guest-hotspot
+hotspot_user_profile: guest-profile
+hotspot_dns_name: login.guest-rog.lab
+guest_interface: vlan500-guest
+management_subnet: 192.168.71.0/24
+internal_networks:
+- address: 192.168.10.0/24
+  comment: AP-MANAGEMENT
+- address: 192.168.20.0/24
+  comment: GROUND-STAFF
+- address: 192.168.60.0/24
+  comment: SECURITY-SERVERS
+- address: 192.168.71.0/24
+  comment: LAB-MANAGEMENT
+- address: 192.168.99.0/30
+  comment: MIKROTIK-TRANSIT

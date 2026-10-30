@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Staff Wi-Fi | Wi-Fi Access</title>
+  <link rel="stylesheet" href="portal-style.css">
+  $(if chap-id)
+  <script src="md5.js"></script>
+  <script>
+    function doLogin(){
+      document.sendin.username.value=document.login.username.value;
+      document.sendin.password.value=hexMD5('$(chap-id)'+document.login.password.value+'$(chap-challenge)');
+      document.sendin.submit();
+      return false;
+    }
+  </script>
+  $(endif)
+</head>
+<body>
+  <main class="page">
+  <section class="card" aria-labelledby="page-title">
+    <p class="eyebrow">Wi-Fi Access</p>
+    <h1 id="page-title">Staff Wi-Fi</h1>
+    <p class="subtitle">Sign in with your staff account.</p>
+    $(if chap-id)
+    <form name="sendin" action="$(link-login-only)" method="post" style="display:none">
+      <input type="hidden" name="username"><input type="hidden" name="password">
+      <input type="hidden" name="dst" value="$(link-orig)"><input type="hidden" name="popup" value="true">
+    </form>
+    $(endif)
+    <form name="login" action="$(link-login-only)" method="post" $(if chap-id) onsubmit="return doLogin()" $(endif)>
+      <input type="hidden" name="dst" value="$(link-orig)"><input type="hidden" name="popup" value="true">
+      <label for="username">Username</label><input id="username" name="username" type="text" autocomplete="username" required autofocus>
+      <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Sign In</button>
+    </form>
+    $(if error)<div class="alert" role="alert">$(error)</div>$(endif)
+  </section>
+  </main>
+</body>
+</html>

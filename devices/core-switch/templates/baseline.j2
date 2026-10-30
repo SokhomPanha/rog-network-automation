@@ -1,0 +1,50 @@
+hostname CORE-SW
+{% for vlan in core_vlans %}
+vlan {{ vlan.id }}
+ name {{ vlan.name }}
+{% endfor %}
+{% for svi in core_svis %}
+interface Vlan{{ svi.id }}
+ description {{ svi.description }}
+ ip address {{ svi.address }} {{ svi.mask }}
+ no shutdown
+{% endfor %}
+{% for trunk in core_trunks %}
+interface {{ trunk.interface }}
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan {{ trunk.vlans }}
+{% endfor %}
+interface Port-channel10
+ description LACP-TO-SW-GROUND
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 100,200,500,600
+ no shutdown
+{% for member in core_lacp_members %}
+interface {{ member }}
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 100,200,500,600
+ channel-group 10 mode active
+ no shutdown
+{% endfor %}
+ip route 0.0.0.0 0.0.0.0 192.168.71.158
+ip route 10.10.10.0 255.255.255.0 192.168.71.1
+ip route 192.168.50.0 255.255.255.0 192.168.99.2
+ip access-list extended ROG-STAFF-PROTECT
+{% for subnet in core_staff_protected_networks %}
+ remark BLOCK STAFF TO {{ subnet.description }}
+ deny ip 192.168.20.0 0.0.0.255 {{ subnet.network }} 0.0.0.255 log
+{% endfor %}
+ remark ALLOW ALL OTHER TRAFFIC
+ permit ip 192.168.20.0 0.0.0.255 any
+interface Vlan200
+ ip access-group ROG-STAFF-PROTECT in
+logging source-interface Vlan600
+logging host {{ core_monitoring_server }}
+ntp source Vlan600
+ntp server {{ core_monitoring_server }}
+access-list 60 permit {{ core_monitoring_server }}
+snmp-server location ROG-TOWER-NETWORK-LAB
+snmp-server contact NETWORK-ADMINISTRATOR

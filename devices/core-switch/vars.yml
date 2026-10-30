@@ -1,0 +1,44 @@
+---
+# Baseline from CORE-SW-20260922T093602Z; no management/gateway redesign.
+core_vlans:
+  - {id: 71, name: OUT-OF-BAND-MANAGEMENT}
+  - {id: 100, name: WIRELESS-MANAGEMENT}
+  - {id: 200, name: staff-vlan}
+  - {id: 500, name: GUEST-HOTSPOT}
+  - {id: 600, name: SECURITY-MONITORING}
+  - {id: 900, name: MIKROTIK-TRANSIT}
+core_svis:
+  - {id: 71, address: 192.168.71.155, mask: 255.255.255.0, description: ANSIBLE-MANAGEMENT}
+  - {id: 100, address: 192.168.10.1, mask: 255.255.255.0, description: NETWORK-MANAGEMENT-GATEWAY}
+  - {id: 200, address: 192.168.20.1, mask: 255.255.255.0, description: GROUND-STAFF-GATEWAY}
+  - {id: 600, address: 192.168.60.1, mask: 255.255.255.0, description: SECURITY-MONITORING-GATEWAY}
+  - {id: 900, address: 192.168.99.1, mask: 255.255.255.252, description: MIKROTIK-TRANSIT}
+core_trunks:
+  - {interface: GigabitEthernet0/1, vlans: '200,500,900'}
+  - {interface: GigabitEthernet0/2, vlans: '100,200,500'}
+  - {interface: GigabitEthernet1/1, vlans: '100,200,500'}
+  - {interface: GigabitEthernet1/2, vlans: '100,200,500'}
+core_lacp_members: [GigabitEthernet1/0, GigabitEthernet1/3]
+core_monitoring_server: 192.168.60.10
+core_staff_protected_networks:
+  - {network: 192.168.10.0, description: WLC-AP-MANAGEMENT}
+  - {network: 192.168.71.0, description: MANAGEMENT}
+  - {network: 192.168.60.0, description: MONITORING}
+  - {network: 192.168.50.0, description: GUEST}
+# Live migration is a separate entry point, explicit flag AND explicit tag.
+staff_hotspot_architecture_action: enable
+core_verify_commands:
+  - show privilege
+  - show ip interface brief
+  - show vlan brief
+  - show interfaces trunk
+  - show ip route
+  - show etherchannel summary
+  - show ip access-lists ROG-STAFF-PROTECT
+  - show running-config interface Vlan200
+  - show running-config interface Vlan900
+  - show ip access-lists ROG-STAFF-HOTSPOT-REQUIRED
+  - show ip access-lists ROG-STAFF-TRANSIT-PROTECT
+  - show ntp associations
+  - show logging | include 192.168.60.10
+  - show access-lists 60

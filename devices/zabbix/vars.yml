@@ -1,0 +1,14 @@
+---
+zabbix_web_url: "http://192.168.71.159/zabbix"
+zabbix_api_url: "{{ zabbix_web_url }}/api_jsonrpc.php"
+zabbix_validate_certs: true
+
+zabbix_required_services:
+  - zabbix-server.service
+
+zabbix_backup_paths:
+  - /etc/zabbix
+  - /etc/apache2
+  - /usr/share/zabbix
+
+zabbix_database_dump_path: "/tmp/zabbix-db.sql"

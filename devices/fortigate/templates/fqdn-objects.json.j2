@@ -1,0 +1,6 @@
+[
+{% for domain in fortigate_staff_block_domains %}
+  {"name": "ROG-STAFF-BLOCK-{{ domain }}", "fqdn": "{{ domain }}"},
+  {"name": "ROG-STAFF-BLOCK-SUB-{{ domain }}", "fqdn": "*.{{ domain }}"}{{ ',' if not loop.last else '' }}
+{% endfor %}
+]

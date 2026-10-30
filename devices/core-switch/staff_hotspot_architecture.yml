@@ -1,0 +1,131 @@
+---
+- name: Deliberately change or restore the Staff forwarding path on Core
+  hosts: core_switch
+  gather_facts: false
+
+  vars_files:
+    - vars.yml
+
+  tags:
+    - never
+    - staff_hotspot_architecture_change
+
+  pre_tasks:
+    - name: Require both deployment gates and a known operation
+      ansible.builtin.assert:
+        that:
+          - rog_allow_live_changes | default(false) | bool
+          - enable_staff_hotspot_architecture_change | default(false) | bool
+          - staff_hotspot_architecture_action in ['enable', 'rollback']
+          - "'staff_hotspot_architecture_change' in ansible_run_tags"
+          - not ansible_check_mode
+        fail_msg: "Use the Staff architecture runbook, both explicit flags, and the staff_hotspot_architecture_change tag."
+
+  tasks:
+    - name: Apply guarded Core architecture operation
+      when:
+        - rog_allow_live_changes | default(false) | bool
+        - enable_staff_hotspot_architecture_change | default(false) | bool
+
+      block:
+        - name: Inspect current ingress ACL attachments
+          cisco.ios.ios_command:
+            commands:
+              - show running-config interface Vlan200
+              - show running-config interface Vlan900
+              - show running-config | include ^ipv6 unicast-routing
+          register: core_arch_before
+          changed_when: false
+
+        - name: Require the audited gateway and valid device command output
+          ansible.builtin.assert:
+            that:
+              - "'ip address 192.168.20.1 255.255.255.0' in core_arch_before.stdout[0]"
+              - "'ip address 192.168.99.1 255.255.255.252' in core_arch_before.stdout[1]"
+              - "(core_arch_before.stdout | join(' ') | regex_search('(?i)%(?: Invalid| Ambiguous| Incomplete)')) is none"
+            fail_msg: "Core Staff/transit addressing or command support differs from the saved baseline; inspect it before cutover."
+
+        - name: Refuse to replace an unexpected ingress ACL
+          ansible.builtin.assert:
+            that:
+              - "(core_arch_before.stdout[0] | regex_findall('ip access-group (\\S+) in') | difference(['ROG-STAFF-PROTECT', 'ROG-STAFF-HOTSPOT-REQUIRED']) | length) == 0"
+              - "(core_arch_before.stdout[1] | regex_findall('ip access-group (\\S+) in') | difference(['ROG-STAFF-TRANSIT-PROTECT']) | length) == 0"
+
+        - name: Reject an IPv6 Staff bypass before enabling IPv4 Hotspot architecture
+          ansible.builtin.assert:
+            that:
+              - "'ipv6 unicast-routing' not in core_arch_before.stdout[2]"
+              - "(core_arch_before.stdout[0] | regex_search('(?m)^ +ipv6 +(address|enable)')) is none"
+            fail_msg: "IPv6 is enabled on the Core or Staff SVI. Audit and block the IPv6 bypass before enabling this IPv4-only Hotspot design."
+          when: staff_hotspot_architecture_action == 'enable'
+
+        - name: Prepare Staff ingress blocking and transit isolation
+          cisco.ios.ios_config:
+            src: templates/staff_hotspot_acl.j2
+          when: staff_hotspot_architecture_action == 'enable'
+
+        - name: Force symmetric Staff return traffic through MikroTik transit
+          cisco.ios.ios_config:
+            lines:
+              - ip route 192.168.20.0 255.255.255.128 192.168.99.2
+              - ip route 192.168.20.128 255.255.255.128 192.168.99.2
+          when: staff_hotspot_architecture_action == 'enable'
+
+        - name: Attach Staff isolation to transit while permitting Guest and other transit traffic
+          cisco.ios.ios_config:
+            parents:
+              - interface Vlan900
+            lines:
+              - ip access-group ROG-STAFF-TRANSIT-PROTECT in
+          when: staff_hotspot_architecture_action == 'enable'
+
+        - name: Prevent direct Core gateway access from Staff clients
+          cisco.ios.ios_config:
+            parents:
+              - interface Vlan200
+            lines:
+              - ip access-group ROG-STAFF-HOTSPOT-REQUIRED in
+          when: staff_hotspot_architecture_action == 'enable'
+
+        - name: Disable Proxy ARP on Staff SVI
+          cisco.ios.ios_config:
+            parents:
+              - interface Vlan200
+            lines:
+              - no ip proxy-arp
+          when: staff_hotspot_architecture_action == 'enable'
+
+        - name: Restore original Staff ingress security during rollback
+          cisco.ios.ios_config:
+            parents:
+              - interface Vlan200
+            lines:
+              - ip access-group ROG-STAFF-PROTECT in
+          when: staff_hotspot_architecture_action == 'rollback'
+
+        - name: Restore Proxy ARP during rollback
+          cisco.ios.ios_config:
+            parents:
+              - interface Vlan200
+            lines:
+              - ip proxy-arp
+          when: staff_hotspot_architecture_action == 'rollback'
+
+        - name: Restore directly connected Staff return path during rollback
+          cisco.ios.ios_config:
+            lines:
+              - no ip route 192.168.20.0 255.255.255.128 192.168.99.2
+              - no ip route 192.168.20.128 255.255.255.128 192.168.99.2
+          when: staff_hotspot_architecture_action == 'rollback'
+
+        - name: Detach optional transit ACL during rollback
+          cisco.ios.ios_config:
+            parents:
+              - interface Vlan900
+            lines:
+              - no ip access-group ROG-STAFF-TRANSIT-PROTECT in
+          when: staff_hotspot_architecture_action == 'rollback'
+
+        - name: Persist deliberate architecture operation
+          cisco.ios.ios_config:
+            save_when: modified

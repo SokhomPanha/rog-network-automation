@@ -1,0 +1,41 @@
+---
+- name: Maintain the verified Core baseline
+  hosts: core_switch
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Require intentional live configuration
+      ansible.builtin.assert:
+        that: rog_allow_live_changes | default(false) | bool
+        fail_msg: "Repository cleanup never deploys. Set rog_allow_live_changes=true only during the documented deployment."
+      tags: [always]
+  tasks:
+    - name: Maintain baseline only before Staff architecture cutover
+      when: rog_allow_live_changes | default(false) | bool
+      tags: [configure]
+      block:
+        - name: Inspect Staff gateway configuration before baseline changes
+          cisco.ios.ios_command:
+            commands: [show running-config interface Vlan200]
+          register: core_staff_before
+          changed_when: false
+        - name: Prevent baseline from undoing an active Hotspot architecture
+          ansible.builtin.assert:
+            that: "'ROG-STAFF-HOTSPOT-REQUIRED' not in core_staff_before.stdout[0]"
+            fail_msg: "Staff architecture is active. Do not run baseline configure; use documented rollback first."
+        - name: Merge final VLAN routing ACL trunk LACP and monitoring baseline
+          cisco.ios.ios_config:
+            src: templates/baseline.j2
+            save_when: modified
+    - name: Maintain protected SNMP community
+      cisco.ios.ios_config:
+        lines:
+          - "snmp-server community {{ core_snmp_community }} RO 60"
+        save_when: modified
+      when:
+        - rog_allow_live_changes | default(false) | bool
+        - core_snmp_community is defined
+      no_log: true
+      diff: false
+      tags: [monitoring]

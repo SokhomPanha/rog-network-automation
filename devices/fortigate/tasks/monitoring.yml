@@ -1,0 +1,40 @@
+---
+- name: Require a protected SNMP community
+  ansible.builtin.assert:
+    that:
+      - vault_snmp_community is defined
+      - vault_snmp_community | length > 0
+  no_log: true
+
+- name: Enable existing SNMP system information
+  fortinet.fortios.fortios_system_snmp_sysinfo:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    system_snmp_sysinfo:
+      status: enable
+      contact_info: NETWORK-ADMINISTRATOR
+      description: ROG Tower FortiGate Firewall
+      location: ROG-TOWER-NETWORK-LAB
+  no_log: true
+
+- name: Preserve monitoring access restricted to Zabbix
+  fortinet.fortios.fortios_system_snmp_community:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    system_snmp_community:
+      id: 10
+      name: "{{ vault_snmp_community }}"
+      status: enable
+      query_v1_status: disable
+      query_v1_port: 161
+      query_v2c_status: enable
+      query_v2c_port: 161
+      trap_v1_status: disable
+      trap_v2c_status: disable
+      hosts:
+        - id: 1
+          ip: 192.168.60.10
+          host_type: query
+          interface_select_method: auto
+  no_log: true

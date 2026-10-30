@@ -1,0 +1,12 @@
+---
+allow_device_connections: false
+rog_allow_live_changes: false
+enable_staff_hotspot_architecture_change: false
+rog_repo_root: "{{ inventory_dir | dirname }}"
+rog_backup_root: "{{ rog_repo_root }}/backups"
+rog_evidence_root: "{{ rog_repo_root }}/evidence"
+rog_monitoring_ip: 192.168.60.10
+core_snmp_community: "{{ vault_snmp_community }}"
+wlc_snmp_community: "{{ vault_snmp_community }}"
+mikrotik_snmp_community: "{{ vault_snmp_community }}"
+fortigate_snmp_community: "{{ vault_snmp_community }}"

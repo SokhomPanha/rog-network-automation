@@ -1,0 +1,80 @@
+---
+- name: Maintain the unified Staff and Guest WLC configuration
+  hosts: wireless_ac
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Require intentional live configuration
+      ansible.builtin.assert:
+        that: rog_allow_live_changes | default(false) | bool
+        fail_msg: "Repository cleanup never deploys. Set rog_allow_live_changes=true during the documented deployment."
+      tags: [always]
+  tasks:
+    - name: Maintain final wireless configuration
+      when: rog_allow_live_changes | default(false) | bool
+      tags: [configure]
+      block:
+        - name: Require the existing vaulted Staff WLAN key
+          ansible.builtin.assert:
+            that:
+              - vault_staff_wlan_psk is defined
+              - vault_staff_wlan_psk | length >= 8
+              - vault_staff_wlan_psk | length <= 63
+          no_log: true
+        - name: Merge final WMI VLAN trunk and policy mappings
+          cisco.ios.ios_config:
+            src: templates/baseline.j2
+        - name: Maintain existing Staff WPA2 PSK security
+          cisco.ios.ios_config:
+            parents: "wlan {{ wlc_staff_profile }} {{ wlc_staff_wlan_id }} {{ wlc_staff_profile }}"
+            lines:
+              - no security wpa akm dot1x
+              - security wpa wpa2 ciphers aes
+              - security wpa akm psk
+              - "security wpa psk set-key ascii 0 {{ vault_staff_wlan_psk }}"
+              - no shutdown
+          no_log: true
+          diff: false
+        - name: Save unified WLC baseline
+          cisco.ios.ios_config:
+            save_when: modified
+    - name: Maintain SNMP only when a vaulted community is supplied
+      cisco.ios.ios_config:
+        parents: ip access-list standard ZABBIX-SNMP
+        lines: ["permit host {{ wlc_monitoring_server }}"]
+      when:
+        - rog_allow_live_changes | default(false) | bool
+        - wlc_snmp_community is defined
+      tags: [monitoring]
+    - name: Maintain WLC SNMP community
+      cisco.ios.ios_config:
+        lines:
+          - "snmp-server community {{ wlc_snmp_community }} RO ZABBIX-SNMP"
+          - snmp-server contact NETWORK-ADMINISTRATOR
+          - snmp-server location ROG-TOWER-NETWORK-LAB
+        save_when: modified
+      when:
+        - rog_allow_live_changes | default(false) | bool
+        - wlc_snmp_community is defined
+      no_log: true
+      diff: false
+      tags: [monitoring]
+    - name: Deliberately provision NTP and syslog after confirming WLC reachability
+      cisco.ios.ios_config:
+        lines:
+          - "ntp server {{ wlc_monitoring_server }}"
+          - "logging host {{ wlc_monitoring_server }}"
+        save_when: modified
+      when:
+        - rog_allow_live_changes | default(false) | bool
+        - wlc_enable_monitoring_services | default(false) | bool
+      tags: [monitoring, ntp]
+    - name: Apply an explicitly supplied existing radio country
+      cisco.ios.ios_config:
+        lines: ["ap country {{ wlc_country_code }}"]
+        save_when: modified
+      when:
+        - rog_allow_live_changes | default(false) | bool
+        - wlc_country_code | length > 0
+      tags: [wireless_country]

@@ -1,0 +1,64 @@
+---
+- name: Read current Staff policy after deployment
+  fortinet.fortios.fortios_configuration_fact:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    selector: firewall_policy
+  register: fortigate_filter_policy_facts
+  no_log: true
+
+- name: Select Staff policy and verify policy count
+  ansible.builtin.set_fact:
+    fortigate_filtered_policy: "{{ fortigate_filter_policy_facts.meta.results | selectattr('policyid', 'equalto', fortigate_staff_policy_id) | first }}"
+  no_log: true
+
+- name: Verify unchanged Staff source, NAT, and three-policy limit
+  ansible.builtin.assert:
+    that:
+      - fortigate_filter_policy_facts.meta.results | length == 3
+      - fortigate_filtered_policy.srcaddr | map(attribute='name') | list == ['ROG-STAFF']
+      - fortigate_filtered_policy.nat == 'enable'
+      - fortigate_filtered_policy.dstintf | map(attribute='name') | list == [fortigate_internet_interface]
+      - >-
+        (fortigate_filter_policy_facts.meta.results | rejectattr('policyid', 'equalto', 11) | list)
+        == (fortigate_policy_facts.meta.results | rejectattr('policyid', 'equalto', 11) | list)
+    fail_msg: Staff source, NAT, policy count or non-Staff policies differ from the preflight state.
+
+- name: Verify FQDN exclusion is attached to Staff only
+  ansible.builtin.assert:
+    that:
+      - fortigate_filtered_policy['dstaddr-negate'] == 'enable'
+      - fortigate_filtered_policy.dstaddr | map(attribute='name') | list == [fortigate_staff_block_group]
+    fail_msg: The FQDN destination exclusion is not attached as expected.
+  when: fortigate_staff_filter_method == 'fqdn'
+
+- name: Read the blocked-domain address group
+  fortinet.fortios.fortios_configuration_fact:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    selector: firewall_addrgrp
+  register: fortigate_filter_group_facts
+  no_log: true
+  when: fortigate_staff_filter_method == 'fqdn'
+
+- name: Verify expected apex and wildcard membership
+  ansible.builtin.assert:
+    that:
+      - >-
+        (fortigate_filter_group_facts.meta.results
+        | selectattr('name', 'equalto', fortigate_staff_block_group) | first).member
+        | map(attribute='name') | sort | list
+        == (lookup('ansible.builtin.template', 'fqdn-objects.json.j2') | from_json)
+        | map(attribute='name') | sort | list
+    fail_msg: Blocked-domain group differs from the maintained domain list.
+  when: fortigate_staff_filter_method == 'fqdn'
+
+- name: Verify static URL and TLS attachment
+  ansible.builtin.assert:
+    that:
+      - fortigate_filtered_policy['utm-status'] == 'enable'
+      - fortigate_filtered_policy['webfilter-profile'] == fortigate_staff_webfilter_name
+      - fortigate_filtered_policy['ssl-ssh-profile'] == fortigate_staff_ssl_profile
+      - fortigate_filtered_policy['dstaddr-negate'] | default('disable') == 'disable'
+    fail_msg: The local URL filter and certificate inspection are not attached as expected.
+  when: fortigate_staff_filter_method == 'static_url'

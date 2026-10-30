@@ -1,0 +1,87 @@
+---
+- name: Check Hotspot profile
+  community.routeros.command:
+    commands:
+    - /ip hotspot profile print count-only where name={{ hotspot_profile }}
+  register: hotspot_profile_check
+  changed_when: false
+- name: Create Hotspot profile when missing
+  community.routeros.command:
+    commands:
+    - /ip hotspot profile add name={{ hotspot_profile }} hotspot-address=192.168.50.1 dns-name={{ hotspot_dns_name
+      }} html-directory=hotspot login-by=http-chap
+  when: hotspot_profile_check.stdout_lines[0][-1] | trim == "0"
+  changed_when: true
+- name: Enforce Hotspot-profile settings
+  community.routeros.command:
+    commands:
+    - /ip hotspot profile set [find where name={{ hotspot_profile }}] hotspot-address=192.168.50.1 dns-name={{ hotspot_dns_name
+      }} html-directory=hotspot login-by=http-chap
+  changed_when: true
+- name: Check Hotspot server
+  community.routeros.command:
+    commands:
+    - /ip hotspot print count-only where name={{ hotspot_server }}
+  register: hotspot_server_check
+  changed_when: false
+- name: Create Hotspot server when missing
+  community.routeros.command:
+    commands:
+    - /ip hotspot add name={{ hotspot_server }} interface=vlan500-guest address-pool=pool-guest profile={{ hotspot_profile
+      }} disabled=no
+  when: hotspot_server_check.stdout_lines[0][-1] | trim == "0"
+  changed_when: true
+- name: Enforce Hotspot-server settings
+  community.routeros.command:
+    commands:
+    - /ip hotspot set [find where name={{ hotspot_server }}] interface=vlan500-guest address-pool=pool-guest profile={{
+      hotspot_profile }} disabled=no
+  changed_when: true
+- name: Check guest user profile
+  community.routeros.command:
+    commands:
+    - /ip hotspot user profile print count-only where name={{ hotspot_user_profile }}
+  register: guest_profile_check
+  changed_when: false
+- name: Create guest user profile when missing
+  community.routeros.command:
+    commands:
+    - /ip hotspot user profile add name={{ hotspot_user_profile }} rate-limit=5M/5M shared-users=60 session-timeout=1h
+      add-mac-cookie=no
+  when: guest_profile_check.stdout_lines[0][-1] | trim == "0"
+  changed_when: true
+- name: Enforce guest user-profile settings
+  community.routeros.command:
+    commands:
+    - /ip hotspot user profile set [find where name={{ hotspot_user_profile }}] rate-limit=5M/5M shared-users=60
+      session-timeout=1h add-mac-cookie=no
+  changed_when: true
+- name: Check portal DNS record
+  community.routeros.command:
+    commands:
+    - /ip dns static print count-only where name={{ hotspot_dns_name }}
+  register: portal_dns_check
+  changed_when: false
+- name: Create portal DNS record when missing
+  community.routeros.command:
+    commands:
+    - /ip dns static add name={{ hotspot_dns_name }} address=192.168.50.1 comment="Guest portal"
+  when: portal_dns_check.stdout_lines[0][-1] | trim == "0"
+  changed_when: true
+- name: Enforce portal DNS record
+  community.routeros.command:
+    commands:
+    - /ip dns static set [find where name={{ hotspot_dns_name }}] address=192.168.50.1 disabled=no
+  changed_when: true
+- name: Read Hotspot configuration
+  community.routeros.command:
+    commands:
+    - /ip hotspot print detail without-paging
+    - /ip hotspot profile print detail without-paging
+    - /ip hotspot user profile print detail without-paging
+    - /ip dns static print detail without-paging
+  register: hotspot_configuration
+  changed_when: false
+- name: Display Hotspot configuration
+  ansible.builtin.debug:
+    var: hotspot_configuration.stdout_lines

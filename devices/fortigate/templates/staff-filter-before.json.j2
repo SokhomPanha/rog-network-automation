@@ -1,0 +1,18 @@
+{
+  "inventory_hostname": {{ inventory_hostname | to_json }},
+  "ansible_host": {{ ansible_host | to_json }},
+  "captured_utc": {{ now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ') | to_json }},
+  "policy": {
+    "policyid": {{ fortigate_staff_policy_id }},
+    "dstaddr": [
+{% for address in fortigate_current_staff_policy.dstaddr %}
+      {"name": {{ address.name | to_json }}}{{ ',' if not loop.last else '' }}
+{% endfor %}
+    ],
+    "dstaddr_negate": {{ fortigate_current_staff_policy['dstaddr-negate'] | default('disable') | to_json }},
+    "utm_status": {{ fortigate_current_staff_policy['utm-status'] | default('disable') | to_json }},
+    "inspection_mode": {{ fortigate_current_staff_policy['inspection-mode'] | default('flow') | to_json }},
+    "webfilter_profile": {{ fortigate_current_staff_policy['webfilter-profile'] | default('') | to_json }},
+    "ssl_ssh_profile": {{ fortigate_current_staff_policy['ssl-ssh-profile'] | default('no-inspection') | to_json }}
+  }
+}

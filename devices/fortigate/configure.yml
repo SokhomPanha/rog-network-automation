@@ -1,0 +1,34 @@
+---
+- name: Configure selected FortiGate features without changing WAN or routing
+  hosts: fortigate
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Require explicit live configuration authorization
+      ansible.builtin.assert:
+        that:
+          - rog_allow_live_changes | default(false) | bool
+          - not ansible_check_mode
+        fail_msg: >-
+          No device changes are enabled. Review the runbook, take backups, then set
+          rog_allow_live_changes=true and select staff_filter or monitoring.
+          Use --syntax-check for offline validation; check mode is not a deployment test.
+      tags: always
+    - name: Require an encrypted API credential
+      ansible.builtin.assert:
+        that:
+          - fortigate_api_token is defined
+          - fortigate_api_token | length > 0
+      no_log: true
+      tags: always
+  tasks:
+    - name: Deploy Staff-only domain filtering
+      ansible.builtin.import_tasks: tasks/staff_filter.yml
+      tags: [never, staff_filter]
+    - name: Restore captured Staff policy settings
+      ansible.builtin.import_tasks: tasks/rollback.yml
+      tags: [never, staff_filter_rollback]
+    - name: Configure existing SNMP monitoring
+      ansible.builtin.import_tasks: tasks/monitoring.yml
+      tags: [never, monitoring]

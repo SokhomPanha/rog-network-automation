@@ -1,0 +1,4 @@
+---
+ansible_user: rogauto
+ansible_private_key_file: /home/sudoku/.ssh/rog_wlc_ansible
+ansible_become: false

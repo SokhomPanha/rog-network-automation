@@ -1,0 +1,15 @@
+---
+# Non-secret schema only. Create vault.yml with ansible-vault create.
+# Existing encrypted per-device Vaults were retained unchanged.
+# Preserve original FortiGate token, Core login, Guest coupon, WLAN PSK.
+vault_snmp_community: "REPLACE_INSIDE_ANSIBLE_VAULT"
+vault_zabbix_ssh_username: "REPLACE_INSIDE_ANSIBLE_VAULT"
+vault_monitoring_ssh_password: "REPLACE_INSIDE_ANSIBLE_VAULT"
+vault_monitoring_become_password: "REPLACE_INSIDE_ANSIBLE_VAULT"
+vault_staff_hotspot_users:
+  - username: "REPLACE_INSIDE_ANSIBLE_VAULT"
+    password: "REPLACE_INSIDE_ANSIBLE_VAULT"
+# Optional, only when integration is actually configured:
+# vault_zabbix_api_token: "REPLACE_INSIDE_ANSIBLE_VAULT"
+# vault_telegram_bot_token: "REPLACE_INSIDE_ANSIBLE_VAULT"
+# vault_telegram_chat_id: "REPLACE_INSIDE_ANSIBLE_VAULT"

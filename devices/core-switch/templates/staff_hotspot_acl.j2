@@ -1,0 +1,8 @@
+ip access-list extended ROG-STAFF-HOTSPOT-REQUIRED
+ remark USE MIKROTIK HOTSPOT GATEWAY; BLOCK DIRECT CORE BYPASS
+ deny ip any any log
+ip access-list extended ROG-STAFF-TRANSIT-PROTECT
+{% for subnet in core_staff_protected_networks %}
+ deny ip 192.168.20.0 0.0.0.255 {{ subnet.network }} 0.0.0.255 log
+{% endfor %}
+ permit ip any any

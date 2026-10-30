@@ -1,0 +1,31 @@
+---
+- name: Read current policies before restoring captured Staff settings
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Read the captured original settings from the controller
+  ansible.builtin.include_vars:
+    file: "{{ fortigate_staff_rollback_file }}"
+    name: fortigate_staff_before
+  no_log: true
+
+- name: Confirm rollback belongs to this device and Staff policy
+  ansible.builtin.assert:
+    that:
+      - fortigate_staff_before.inventory_hostname == inventory_hostname
+      - fortigate_staff_before.ansible_host == ansible_host
+      - fortigate_staff_before.policy.policyid == 11
+    fail_msg: Original Staff policy file is missing or belongs to another device; inspect the full backup manually.
+
+- name: Restore only the original Staff destination and profile settings
+  fortinet.fortios.fortios_firewall_policy:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    firewall_policy: "{{ fortigate_staff_before.policy }}"
+  no_log: true
+
+- name: Explain retained rollback data and unused filter objects
+  ansible.builtin.debug:
+    msg: >-
+      Original Staff policy settings restored. Dedicated unused filter objects and the
+      first rollback snapshot remain for review; no policies, routes or backups were deleted.

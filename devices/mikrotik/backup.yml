@@ -1,0 +1,84 @@
+---
+- name: Back up MikroTik configuration
+  hosts: mikrotik
+  gather_facts: false
+  vars:
+    backup_directory: '{{ rog_backup_root }}/mikrotik'
+    mikrotik_key: '{{ ansible_private_key_file }}'
+  tasks:
+  - name: Generate backup timestamp
+    ansible.builtin.set_fact:
+      backup_timestamp: '{{ lookup(''pipe'', ''date -u +%Y%m%dT%H%M%SZ'') }}'
+  - name: Define backup filenames
+    ansible.builtin.set_fact:
+      remote_backup_name: ansible-{{ backup_timestamp }}
+      local_backup_file: '{{ backup_directory }}/{{ inventory_hostname }}-{{ backup_timestamp }}.rsc'
+  - name: Create local backup directory
+    ansible.builtin.file:
+      path: '{{ backup_directory }}'
+      state: directory
+      mode: '0700'
+    delegate_to: localhost
+  - name: Export configuration to MikroTik file
+    community.routeros.command:
+      commands:
+      - /export file={{ remote_backup_name }}
+    changed_when: true
+  - name: Wait for MikroTik to finish creating export
+    ansible.builtin.pause:
+      seconds: 2
+  - name: Download configuration using SCP
+    ansible.builtin.command:
+      argv:
+      - scp
+      - -O
+      - -i
+      - '{{ mikrotik_key }}'
+      - -o
+      - IdentitiesOnly=yes
+      - -o
+      - StrictHostKeyChecking=accept-new
+      - '{{ ansible_user }}@{{ ansible_host }}:{{ remote_backup_name }}.rsc'
+      - '{{ local_backup_file }}'
+    delegate_to: localhost
+    register: scp_result
+    changed_when: true
+  - name: Secure the downloaded backup
+    ansible.builtin.file:
+      path: '{{ local_backup_file }}'
+      mode: '0600'
+    delegate_to: localhost
+  - name: Read saved backup information
+    ansible.builtin.stat:
+      path: '{{ local_backup_file }}'
+    delegate_to: localhost
+    register: backup_information
+  - name: Validate downloaded backup
+    ansible.builtin.assert:
+      that:
+      - backup_information.stat.exists
+      - backup_information.stat.size > 100
+      fail_msg: Downloaded MikroTik backup is missing or empty
+      success_msg: MikroTik backup validated successfully
+  - name: Remove temporary export from MikroTik
+    community.routeros.command:
+      commands:
+      - /file remove [find name="{{ remote_backup_name }}.rsc"]
+    changed_when: true
+  - name: Display backup result
+    ansible.builtin.debug:
+      msg:
+      - MikroTik backup successful
+      - 'Device: {{ inventory_hostname }}'
+      - 'File: {{ local_backup_file }}'
+      - 'Size: {{ backup_information.stat.size }} bytes'
+  pre_tasks:
+  - name: Require explicit device connections
+    ansible.builtin.assert:
+      that:
+      - allow_device_connections | default(false) | bool
+      - not ansible_check_mode
+    tags:
+    - always
+  tags:
+  - backup

@@ -1,0 +1,39 @@
+---
+- name: Check existing VLAN interfaces
+  community.routeros.command:
+    commands:
+    - /interface vlan print count-only where name={{ item.name }}
+  loop: '{{ mikrotik_vlans }}'
+  register: vlan_checks
+  changed_when: false
+  loop_control:
+    label: '{{ item.name }}'
+- name: Create missing VLAN interfaces
+  community.routeros.command:
+    commands:
+    - /interface vlan add name={{ item.item.name }} interface=ether1 vlan-id={{ item.item.vlan_id }} disabled=no
+      comment="{{ item.item.comment }}"
+  loop: '{{ vlan_checks.results }}'
+  when:
+  - item.stdout_lines[0][-1] | trim == "0"
+  loop_control:
+    label: '{{ item.item.name }}'
+  changed_when: true
+- name: Enforce VLAN interface settings
+  community.routeros.command:
+    commands:
+    - /interface vlan set [find where name={{ item.name }}] interface=ether1 vlan-id={{ item.vlan_id }} disabled=no
+      comment="{{ item.comment }}"
+  loop: '{{ mikrotik_vlans }}'
+  changed_when: true
+  loop_control:
+    label: '{{ item.name }}'
+- name: Read configured VLAN interfaces
+  community.routeros.command:
+    commands:
+    - /interface vlan print detail without-paging
+  register: configured_vlans
+  changed_when: false
+- name: Display configured VLAN interfaces
+  ansible.builtin.debug:
+    var: configured_vlans.stdout_lines

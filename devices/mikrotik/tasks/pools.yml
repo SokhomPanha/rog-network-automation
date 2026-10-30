@@ -1,0 +1,37 @@
+---
+- name: Check existing DHCP pools
+  community.routeros.command:
+    commands:
+    - /ip pool print count-only where name={{ item.name }}
+  loop: '{{ mikrotik_pools }}'
+  register: pool_checks
+  changed_when: false
+  loop_control:
+    label: '{{ item.name }}'
+- name: Create missing DHCP pools
+  community.routeros.command:
+    commands:
+    - /ip pool add name={{ item.item.name }} ranges={{ item.item.ranges }}
+  loop: '{{ pool_checks.results }}'
+  when:
+  - item.stdout_lines[0][-1] | trim == "0"
+  loop_control:
+    label: '{{ item.item.name }}'
+  changed_when: true
+- name: Enforce DHCP pool ranges
+  community.routeros.command:
+    commands:
+    - /ip pool set [find where name={{ item.name }}] ranges={{ item.ranges }}
+  loop: '{{ mikrotik_pools }}'
+  changed_when: true
+  loop_control:
+    label: '{{ item.name }}'
+- name: Read configured DHCP pools
+  community.routeros.command:
+    commands:
+    - /ip pool print detail without-paging
+  register: configured_pools
+  changed_when: false
+- name: Display configured DHCP pools
+  ansible.builtin.debug:
+    var: configured_pools.stdout_lines

@@ -1,0 +1,79 @@
+---
+- name: Preserve confirmed monitoring configuration and an existing consistent DB dump
+  hosts: monitoring
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Require device access and confirmed installation paths
+      ansible.builtin.assert:
+        that:
+          - allow_device_connections | default(false) | bool
+          - zabbix_backup_paths | length > 0
+          - zabbix_database_dump_path | length > 0
+          - zabbix_database_dump_path is match('^/')
+        fail_msg: >-
+          Set allow_device_connections=true, actual zabbix_backup_paths and
+          zabbix_database_dump_path after producing a consistent database dump.
+      tags: [always]
+  tasks:
+    - name: Validate every requested backup path
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ zabbix_backup_paths + [zabbix_database_dump_path] }}"
+      register: backup_paths
+      become: true
+      no_log: true
+      tags: [backup]
+    - name: Require existing absolute paths
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.item is match('^/')
+      loop: "{{ backup_paths.results }}"
+      no_log: true
+      tags: [backup]
+    - name: Set unique local backup name
+      ansible.builtin.set_fact:
+        zabbix_backup_stamp: "{{ now(utc=true, fmt='%Y%m%dT%H%M%S%fZ') }}"
+      tags: [backup]
+    - name: Create private local backup directory
+      ansible.builtin.file:
+        path: "{{ rog_backup_root }}/zabbix"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      tags: [backup]
+    - name: Create temporary server archive and retrieve it
+      block:
+        - name: Allocate private temporary directory
+          ansible.builtin.tempfile:
+            state: directory
+            prefix: rog-zabbix-backup-
+          register: zabbix_tmp
+          become: true
+        - name: Archive confirmed files with the existing database dump
+          ansible.builtin.command:
+            argv: "{{ ['tar', '-czf', zabbix_tmp.path + '/backup.tar.gz', '--'] + zabbix_backup_paths + [zabbix_database_dump_path] }}"
+          become: true
+          no_log: true
+        - name: Download archive without printing its content
+          ansible.builtin.fetch:
+            src: "{{ zabbix_tmp.path }}/backup.tar.gz"
+            dest: "{{ rog_backup_root }}/zabbix/{{ inventory_hostname }}-{{ zabbix_backup_stamp }}.tar.gz"
+            flat: true
+          become: true
+          no_log: true
+        - name: Restrict local archive permissions
+          ansible.builtin.file:
+            path: "{{ rog_backup_root }}/zabbix/{{ inventory_hostname }}-{{ zabbix_backup_stamp }}.tar.gz"
+            mode: "0600"
+          delegate_to: localhost
+      always:
+        - name: Remove only the temporary server archive directory
+          ansible.builtin.file:
+            path: "{{ zabbix_tmp.path }}"
+            state: absent
+          become: true
+          when: zabbix_tmp.path is defined
+      tags: [backup]

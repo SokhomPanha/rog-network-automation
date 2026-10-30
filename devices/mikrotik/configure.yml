@@ -1,0 +1,60 @@
+---
+- name: Maintain final MikroTik baseline with Guest service preserved
+  hosts: mikrotik
+  gather_facts: false
+  vars_files:
+  - vars.yml
+  pre_tasks:
+  - name: Require explicit authorization before any device connection
+    ansible.builtin.assert:
+      that:
+      - rog_allow_live_changes | default(false) | bool
+      - not ansible_check_mode
+      fail_msg: Live changes are disabled. Review the device README and deployment runbook.
+    tags:
+    - always
+  - name: Check that Staff cutover will not be reverted by baseline maintenance
+    community.routeros.command:
+      commands:
+      - /ip hotspot print count-only where name="ROG-STAFF-HOTSPOT" and disabled=no
+    changed_when: false
+    register: staff_active
+    tags:
+    - always
+  - name: Require intentional rollback before rerunning the original gateway baseline
+    ansible.builtin.assert:
+      that:
+      - staff_active.stdout[0] | trim == "0"
+      fail_msg: Staff Hotspot is active. Use its maintenance playbook; baseline would restore Core DHCP gateway.
+    tags:
+    - always
+  tasks:
+  - name: Maintain vlans
+    ansible.builtin.import_tasks: tasks/vlans.yml
+    tags:
+    - baseline
+  - name: Maintain ip addresses
+    ansible.builtin.import_tasks: tasks/ip_addresses.yml
+    tags:
+    - baseline
+  - name: Maintain pools
+    ansible.builtin.import_tasks: tasks/pools.yml
+    tags:
+    - baseline
+  - name: Maintain dhcp
+    ansible.builtin.import_tasks: tasks/dhcp.yml
+    tags:
+    - baseline
+  - name: Maintain routing
+    ansible.builtin.import_tasks: tasks/routing.yml
+    tags:
+    - baseline
+  - name: Maintain hotspot
+    ansible.builtin.import_tasks: tasks/hotspot.yml
+    tags:
+    - guest_hotspot
+  - name: Maintain security
+    ansible.builtin.import_tasks: tasks/security.yml
+    tags:
+    - ntp
+    - monitoring

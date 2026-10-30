@@ -1,0 +1,126 @@
+---
+- name: Validate the selected lab filtering method
+  ansible.builtin.assert:
+    that:
+      - fortigate_staff_policy_id == 11
+      - fortigate_staff_address == 'ROG-STAFF'
+      - fortigate_staff_filter_method in ['fqdn', 'static_url']
+      - fortigate_staff_filter_method != 'fqdn' or fortigate_staff_dns_visibility_confirmed | bool
+      - fortigate_staff_filter_method != 'static_url' or fortigate_staff_tls_inspection_confirmed | bool
+      - fortigate_staff_block_domains | length > 0
+      - fortigate_staff_block_domains | unique | length == fortigate_staff_block_domains | length
+    fail_msg: >-
+      FQDN filtering requires observed plaintext DNS through FortiGate; confirm the
+      documented DNS path then set fortigate_staff_dns_visibility_confirmed=true.
+      Static URL filtering instead requires a real TLS/QUIC capability test and
+      fortigate_staff_tls_inspection_confirmed=true. No device writes have occurred.
+
+- name: Validate domain syntax and avoid blocking Google or YouTube domains
+  ansible.builtin.assert:
+    that:
+      - item is match('^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$')
+      - item is not search('(^|\.)(google|youtube|googlevideo|ytimg|ggpht|gstatic|googleapis)\.')
+    fail_msg: Use individual service domains; Google and YouTube infrastructure must remain accessible.
+  loop: "{{ fortigate_staff_block_domains }}"
+
+- name: Read baseline and rule out fallback bypasses before any write
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Refuse to replace unrelated existing security profiles
+  ansible.builtin.assert:
+    that:
+      - fortigate_current_staff_policy['webfilter-profile'] | default('') in ['', fortigate_staff_webfilter_name]
+      - fortigate_current_staff_policy['application-list'] | default('') == ''
+      - fortigate_current_staff_policy['profile-type'] | default('single') == 'single'
+      - fortigate_current_staff_policy['utm-status'] | default('disable') == 'disable' or fortigate_current_staff_policy['webfilter-profile'] | default('') == fortigate_staff_webfilter_name
+    fail_msg: Staff already has a different security profile; review and merge it before applying this lab filter.
+
+- name: Create protected rollback directory
+  ansible.builtin.file:
+    path: "{{ rog_backup_root }}"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+
+- name: Capture original Staff policy fields once before deployment
+  ansible.builtin.template:
+    src: staff-filter-before.json.j2
+    dest: "{{ fortigate_staff_rollback_file }}"
+    mode: '0600'
+    force: false
+  delegate_to: localhost
+  no_log: true
+
+- name: Load original settings for reversible profile attachment
+  ansible.builtin.include_vars:
+    file: "{{ fortigate_staff_rollback_file }}"
+    name: fortigate_staff_before
+  no_log: true
+
+- name: Validate baseline identity before use
+  ansible.builtin.assert:
+    that:
+      - fortigate_staff_before.inventory_hostname == inventory_hostname
+      - fortigate_staff_before.ansible_host == ansible_host
+      - fortigate_staff_before.policy.policyid == fortigate_staff_policy_id
+    fail_msg: Rollback file belongs to another device or policy; review it without overwriting the original.
+
+- name: Build dedicated FQDN object names and URL entries
+  ansible.builtin.set_fact:
+    fortigate_staff_fqdn_objects: "{{ lookup('ansible.builtin.template', 'fqdn-objects.json.j2') | from_json }}"
+    fortigate_staff_url_entries: "{{ lookup('ansible.builtin.template', 'url-entries.json.j2') | from_json }}"
+
+- name: Create apex and wildcard objects for Staff blocked services
+  fortinet.fortios.fortios_firewall_address:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    firewall_address:
+      name: "{{ item.name }}"
+      type: fqdn
+      fqdn: "{{ item.fqdn }}"
+      comment: Staff social-media domain exclusion; maintained lab coverage
+  loop: "{{ fortigate_staff_fqdn_objects }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  when: fortigate_staff_filter_method == 'fqdn'
+
+- name: Create the dedicated blocked-destination group
+  fortinet.fortios.fortios_firewall_addrgrp:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    firewall_addrgrp:
+      name: "{{ fortigate_staff_block_group }}"
+      member: "{{ lookup('ansible.builtin.template', 'fqdn-members.json.j2') | from_json }}"
+      comment: Facebook and TikTok domains for Staff policy only
+  no_log: true
+  when: fortigate_staff_filter_method == 'fqdn'
+
+- name: Configure optional static URL inspection
+  ansible.builtin.import_tasks: static_url.yml
+  when: fortigate_staff_filter_method == 'static_url'
+
+- name: Exclude known blocked IP destinations from the existing Staff accept policy
+  fortinet.fortios.fortios_firewall_policy:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    firewall_policy: >-
+      {{ fortigate_staff_before.policy | combine({
+        'dstaddr': [{'name': fortigate_staff_block_group}],
+        'dstaddr_negate': 'enable'
+      }) }}
+  no_log: true
+  when: fortigate_staff_filter_method == 'fqdn'
+
+- name: Read back and verify the filter attachment
+  ansible.builtin.import_tasks: verify_filter.yml
+
+- name: Report configuration scope and remaining client validation
+  ansible.builtin.debug:
+    msg: >-
+      Policy 11 filter configured using {{ fortigate_staff_filter_method }}.
+      Three policies retained; Guest, management, SD-WAN, NAT and routing were not rewritten.
+      Client/browser tests are still pending. Original Staff settings: {{ fortigate_staff_rollback_file }}.

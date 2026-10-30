@@ -1,0 +1,29 @@
+---
+- name: Check for core default route
+  community.routeros.command:
+    commands:
+    - /ip route print count-only where comment="{{ route_comment }}"
+  register: route_check
+  changed_when: false
+- name: Add core default route when missing
+  community.routeros.command:
+    commands:
+    - /ip route add dst-address=0.0.0.0/0 gateway=192.168.99.1 distance=1 comment="{{ route_comment }}" disabled=no
+  when:
+  - route_check.stdout_lines[0][-1] | trim == "0"
+  changed_when: true
+- name: Enforce core default-route settings
+  community.routeros.command:
+    commands:
+    - /ip route set [find where comment="{{ route_comment }}"] dst-address=0.0.0.0/0 gateway=192.168.99.1 distance=1
+      disabled=no
+  changed_when: true
+- name: Read current routing table
+  community.routeros.command:
+    commands:
+    - /ip route print detail without-paging
+  register: routing_table
+  changed_when: false
+- name: Display current routing table
+  ansible.builtin.debug:
+    var: routing_table.stdout_lines

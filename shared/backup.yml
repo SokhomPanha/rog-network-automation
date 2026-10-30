@@ -1,0 +1,6 @@
+---
+- import_playbook: ../devices/core-switch/backup.yml
+- import_playbook: ../devices/fortigate/backup.yml
+- import_playbook: ../devices/mikrotik/backup.yml
+- import_playbook: ../devices/wlc/backup.yml
+- import_playbook: ../devices/zabbix/backup.yml

@@ -1,0 +1,309 @@
+---
+- name: Prepare Staff profiles accounts and real portal without changing DHCP
+  hosts: mikrotik
+  gather_facts: false
+
+  vars_files:
+    - vars.yml
+
+  tags:
+    - never
+    - staff_hotspot
+
+  pre_tasks:
+    - name: Require both the named tag and explicit change authorization
+      ansible.builtin.assert:
+        that:
+          - rog_allow_live_changes | default(false) | bool
+          - enable_staff_hotspot_preparation | bool
+          - '"staff_hotspot" in ansible_run_tags'
+          - not ansible_check_mode
+        fail_msg: Review docs/STAFF_HOTSPOT_ARCHITECTURE.md before opting into this operation.
+      tags:
+        - always
+
+  tasks:
+    - name: Validate Staff identity and distinct portal storage
+      ansible.builtin.assert:
+        that:
+          - staff_hotspot_users | length > 0
+          - staff_hotspot_directory != "hotspot"
+          - staff_hotspot_directory is match("^(flash/)?hotspot-staff$")
+          - staff_hotspot_login_by in ["http-chap", "https"]
+          - staff_hotspot_login_by != "https" or staff_hotspot_ssl_certificate != "none"
+          - staff_hotspot_server == "ROG-STAFF-HOTSPOT"
+          - staff_hotspot_interface == "vlan200-ground"
+      no_log: true
+
+    - name: Validate dedicated Staff accounts
+      ansible.builtin.assert:
+        that:
+          - item.username is match("^[A-Za-z0-9_.@-]{1,64}$")
+          - item.password | length >= 12
+      loop: "{{ staff_hotspot_users }}"
+      no_log: true
+
+    - name: Check Staff service state before preparation
+      community.routeros.command:
+        commands:
+          - /ip hotspot print count-only where name={{ staff_hotspot_server | community.routeros.quote_argument_value }} and disabled=no
+          - /file print count-only where name="hotspot/md5.js"
+      changed_when: false
+      register: staff_prepare_state
+
+    - name: Show Staff preparation count results
+      ansible.builtin.debug:
+        var: staff_prepare_state.stdout
+
+    - name: Extract final RouterOS count values
+      ansible.builtin.set_fact:
+        staff_hotspot_enabled_count: >-
+          {{
+            staff_prepare_state.stdout[0]
+            | regex_findall('[0-9]+')
+            | last
+            | int
+          }}
+        staff_chap_helper_count: >-
+          {{
+            staff_prepare_state.stdout[1]
+            | regex_findall('[0-9]+')
+            | last
+            | int
+          }}
+
+    - name: Require preparation before activation
+      ansible.builtin.assert:
+        that:
+          - staff_hotspot_enabled_count == 0
+          - staff_hotspot_login_by != "http-chap" or staff_chap_helper_count == 1
+        fail_msg: Preparation requires a disabled Staff service and the existing RouterOS CHAP helper.
+
+    - name: Reject Staff usernames that collide with existing Guest accounts
+      community.routeros.command:
+        commands:
+          - /ip hotspot user print count-only where name={{ item.username | community.routeros.quote_argument_value }} and server!={{ staff_hotspot_server | community.routeros.quote_argument_value }}
+      changed_when: false
+      loop: "{{ staff_hotspot_users }}"
+      register: staff_user_collisions
+      no_log: true
+
+    - name: Keep account namespaces separate
+      ansible.builtin.assert:
+        that:
+          - >
+            (
+              item.stdout[0]
+              | regex_findall('[0-9]+')
+              | last
+              | int
+            ) == 0
+      loop: "{{ staff_user_collisions.results }}"
+      no_log: true
+
+    - name: Create the separate Staff portal directory
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/file find where name={{ staff_hotspot_directory | community.routeros.quote_argument_value }}]] = 0)
+            do={
+              /file add name={{ staff_hotspot_directory | community.routeros.quote_argument_value }} type=directory
+            }
+      changed_when: true
+
+    - name: Copy only the built-in CHAP helper from the working Guest directory
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/file find where name="{{ staff_hotspot_directory }}/md5.js"]] = 0)
+            do={
+              /file add name="{{ staff_hotspot_directory }}/md5.js" type=file
+            }
+          - >-
+            /file set [find where name="{{ staff_hotspot_directory }}/md5.js"]
+            contents=[/file get [find where name="hotspot/md5.js"] contents]
+      changed_when: true
+      when: staff_hotspot_login_by == "http-chap"
+
+    - name: Upload the actual RouterOS Staff portal pages
+      ansible.builtin.command:
+        argv:
+          - scp
+          - -O
+          - -i
+          - "{{ portal_ssh_key }}"
+          - -o
+          - IdentitiesOnly=yes
+          - -o
+          - StrictHostKeyChecking=yes
+          - "{{ playbook_dir }}/files/staff_hotspot/{{ item }}"
+          - "{{ ansible_user }}@{{ ansible_host }}:{{ staff_hotspot_directory }}/{{ item }}"
+      delegate_to: localhost
+      loop:
+        - login.html
+        - alogin.html
+        - status.html
+        - logout.html
+        - error.html
+        - portal-style.css
+      changed_when: true
+
+    - name: Create the Staff authentication profile when absent
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip hotspot profile find where name={{ staff_hotspot_profile | community.routeros.quote_argument_value }}]] = 0)
+            do={
+              /ip hotspot profile add name={{ staff_hotspot_profile | community.routeros.quote_argument_value }}
+            }
+      changed_when: true
+
+    - name: Enforce Staff Hotspot profile settings
+      community.routeros.command:
+        commands:
+          - /ip hotspot profile set [find where name={{ staff_hotspot_profile | community.routeros.quote_argument_value }}] hotspot-address=192.168.20.2
+          - /ip hotspot profile set [find where name={{ staff_hotspot_profile | community.routeros.quote_argument_value }}] dns-name={{ staff_hotspot_dns_name | community.routeros.quote_argument_value }}
+          - /ip hotspot profile set [find where name={{ staff_hotspot_profile | community.routeros.quote_argument_value }}] html-directory={{ staff_hotspot_directory | community.routeros.quote_argument_value }}
+          - /ip hotspot profile set [find where name={{ staff_hotspot_profile | community.routeros.quote_argument_value }}] login-by={{ staff_hotspot_login_by | community.routeros.quote_argument_value }}
+          - /ip hotspot profile set [find where name={{ staff_hotspot_profile | community.routeros.quote_argument_value }}] ssl-certificate={{ staff_hotspot_ssl_certificate | community.routeros.quote_argument_value }}
+          - /ip hotspot profile set [find where name={{ staff_hotspot_profile | community.routeros.quote_argument_value }}] use-radius=no
+      changed_when: true
+
+    - name: Create the disabled Staff service when absent
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip hotspot find where name={{ staff_hotspot_server | community.routeros.quote_argument_value }}]] = 0)
+            do={
+              /ip hotspot add
+              name={{ staff_hotspot_server | community.routeros.quote_argument_value }}
+              interface=vlan200-ground
+              address-pool=none
+              profile={{ staff_hotspot_profile | community.routeros.quote_argument_value }}
+              disabled=yes
+            }
+      changed_when: true
+
+    - name: Keep the prepared Staff service disabled
+      community.routeros.command:
+        commands:
+          - >-
+            /ip hotspot set
+            [find where name={{ staff_hotspot_server | community.routeros.quote_argument_value }}]
+            interface=vlan200-ground
+            address-pool=none
+            profile={{ staff_hotspot_profile | community.routeros.quote_argument_value }}
+            disabled=yes
+      changed_when: true
+
+    - name: Create the dedicated Staff user profile
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip hotspot user profile find where name={{ staff_hotspot_user_profile | community.routeros.quote_argument_value }}]] = 0)
+            do={
+              /ip hotspot user profile add name={{ staff_hotspot_user_profile | community.routeros.quote_argument_value }}
+            }
+          - >-
+            /ip hotspot user profile set
+            [find where name={{ staff_hotspot_user_profile | community.routeros.quote_argument_value }}]
+            shared-users=1
+            session-timeout=8h
+            idle-timeout=15m
+            add-mac-cookie=no
+      changed_when: true
+
+    - name: Create missing Staff accounts on the Staff server only
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip hotspot user find where name={{ item.username | community.routeros.quote_argument_value }}]] = 0)
+            do={
+              /ip hotspot user add
+              name={{ item.username | community.routeros.quote_argument_value }}
+              password={{ item.password | community.routeros.quote_argument_value }}
+              server={{ staff_hotspot_server | community.routeros.quote_argument_value }}
+              profile={{ staff_hotspot_user_profile | community.routeros.quote_argument_value }}
+              comment="ROG managed Staff account"
+              disabled=no
+            }
+      changed_when: true
+      loop: "{{ staff_hotspot_users }}"
+      no_log: true
+
+    - name: Update managed Staff account credentials without logging them
+      community.routeros.command:
+        commands:
+          - >-
+            /ip hotspot user set
+            [find where name={{ item.username | community.routeros.quote_argument_value }}
+            and server={{ staff_hotspot_server | community.routeros.quote_argument_value }}]
+            password={{ item.password | community.routeros.quote_argument_value }}
+            profile={{ staff_hotspot_user_profile | community.routeros.quote_argument_value }}
+            disabled=no
+      changed_when: true
+      loop: "{{ staff_hotspot_users }}"
+      no_log: true
+
+    - name: Optionally bind existing Guest vouchers to their existing Guest server only
+      community.routeros.command:
+        commands:
+          - /ip hotspot user set [find where profile="guest-profile" and server="all"] server=guest-hotspot
+      changed_when: true
+      when: restrict_guest_vouchers_to_guest_server | bool
+      no_log: true
+
+    - name: Create the Staff portal DNS record
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip dns static find where name={{ staff_hotspot_dns_name | community.routeros.quote_argument_value }}]] = 0)
+            do={
+              /ip dns static add
+              name={{ staff_hotspot_dns_name | community.routeros.quote_argument_value }}
+              address=192.168.20.2
+              comment="ROG Staff portal"
+            }
+            else={
+              /ip dns static set
+              [find where name={{ staff_hotspot_dns_name | community.routeros.quote_argument_value }}]
+              address=192.168.20.2
+              disabled=no
+            }
+      changed_when: true
+
+    - name: Record normal Hotspot authentication events without debug logging
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/system logging find where prefix="ROG-HOTSPOT"]] = 0)
+            do={
+              /system logging add
+              topics=hotspot,info
+              action=memory
+              prefix="ROG-HOTSPOT"
+            }
+      changed_when: true
+
+    - name: Optionally forward Hotspot events to the existing syslog receiver
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/system logging action find where name="rog-staff-remote"]] = 0)
+            do={
+              /system logging action add
+              name=rog-staff-remote
+              target=remote
+              remote=192.168.60.10
+              remote-port=514
+            }
+          - >-
+            :if ([:len [/system logging find where prefix="ROG-HOTSPOT-SYSLOG"]] = 0)
+            do={
+              /system logging add
+              topics=hotspot,info
+              action=rog-staff-remote
+              prefix="ROG-HOTSPOT-SYSLOG"
+            }
+      changed_when: true
+      when: staff_hotspot_syslog_enabled | bool

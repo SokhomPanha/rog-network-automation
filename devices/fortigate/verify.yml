@@ -1,0 +1,42 @@
+---
+- name: Read and verify the FortiGate baseline and selected Staff filter
+  hosts: fortigate
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Require intentional read-only device access
+      ansible.builtin.assert:
+        that:
+          - allow_device_connections | default(false) | bool
+        fail_msg: Set allow_device_connections=true only when the device is available for read-only verification.
+      tags: always
+  tasks:
+    - name: Read and validate the known three-policy baseline
+      ansible.builtin.import_tasks: tasks/preflight.yml
+      tags: [always, verify]
+    - name: Read existing SD-WAN configuration
+      fortinet.fortios.fortios_configuration_fact:
+        access_token: "{{ fortigate_api_token }}"
+        vdom: "{{ vdom | default('root') }}"
+        selector: system_sdwan
+      register: fortigate_sdwan_facts
+      no_log: true
+      tags: verify
+    - name: Validate both existing WAN members remain configured
+      ansible.builtin.assert:
+        that:
+          - fortigate_sdwan_facts.meta.results.status == 'enable'
+          - fortigate_sdwan_facts.meta.results.members | map(attribute='interface') | sort | list == ['port1', 'port2']
+          - "'Internet_SLA' in (fortigate_sdwan_facts.meta.results['health-check'] | map(attribute='name') | list)"
+        fail_msg: Expected saved dual-WAN members and Internet_SLA were not found; investigate without applying configuration.
+      tags: verify
+    - name: Verify selected Staff filter attachment
+      ansible.builtin.import_tasks: tasks/verify_filter.yml
+      tags: [never, staff_filter]
+    - name: Report the limit of device verification
+      ansible.builtin.debug:
+        msg: >-
+          Configuration checks completed. Browser access, DNS learning, live WAN health,
+          Guest login and packet-path behavior still require the documented real tests.
+      tags: [verify, staff_filter]

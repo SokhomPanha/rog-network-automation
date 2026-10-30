@@ -1,0 +1,58 @@
+---
+- name: Create static URL entries for Facebook and TikTok
+  fortinet.fortios.fortios_webfilter_urlfilter:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    webfilter_urlfilter:
+      id: "{{ fortigate_staff_urlfilter_id }}"
+      name: ROG-STAFF-URL-BLOCKS
+      entries: "{{ fortigate_staff_url_entries }}"
+  no_log: true
+
+- name: Create a local URL filter with FortiGuard categories disabled
+  fortinet.fortios.fortios_webfilter_profile:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    webfilter_profile:
+      name: "{{ fortigate_staff_webfilter_name }}"
+      comment: Local Staff URL filter; no FortiGuard category subscription required
+      feature_set: flow
+      ftgd_wf:
+        options: [ftgd-disable]
+      web:
+        urlfilter_table: "{{ fortigate_staff_urlfilter_id }}"
+        youtube_restrict: none
+      web_url_log: enable
+  no_log: true
+
+- name: Create dedicated certificate inspection with QUIC fallback to TCP
+  fortinet.fortios.fortios_firewall_ssl_ssh_profile:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    firewall_ssl_ssh_profile:
+      name: "{{ fortigate_staff_ssl_profile }}"
+      comment: Staff-only SNI inspection; HTTPS capability must be tested on EVAL first
+      https:
+        status: certificate-inspection
+        ports: [443]
+        quic: block
+  no_log: true
+
+- name: Attach the local URL and certificate inspection profiles to Staff only
+  fortinet.fortios.fortios_firewall_policy:
+    access_token: "{{ fortigate_api_token }}"
+    vdom: "{{ vdom | default('root') }}"
+    state: present
+    firewall_policy:
+      policyid: "{{ fortigate_staff_policy_id }}"
+      dstaddr:
+        - name: all
+      dstaddr_negate: disable
+      utm_status: enable
+      inspection_mode: flow
+      webfilter_profile: "{{ fortigate_staff_webfilter_name }}"
+      ssl_ssh_profile: "{{ fortigate_staff_ssl_profile }}"
+  no_log: true

@@ -1,0 +1,39 @@
+---
+- name: Create private backup directory
+  ansible.builtin.file:
+    path: "{{ rog_backup_root }}"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+- name: Choose a unique backup name
+  ansible.builtin.set_fact:
+    cisco_backup_filename: "{{ inventory_hostname }}-{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%S%NZ') }}.conf"
+- name: Read running configuration without exposing credentials
+  cisco.ios.ios_command:
+    commands: [show running-config]
+  register: cisco_running_config
+  changed_when: false
+  no_log: true
+- name: Save private running configuration
+  ansible.builtin.copy:
+    content: "{{ cisco_running_config.stdout[0] }}\n"
+    dest: "{{ rog_backup_root }}/{{ cisco_backup_filename }}"
+    mode: '0600'
+  delegate_to: localhost
+  no_log: true
+  diff: false
+- name: Calculate backup checksum
+  ansible.builtin.stat:
+    path: "{{ rog_backup_root }}/{{ cisco_backup_filename }}"
+    checksum_algorithm: sha256
+  register: cisco_backup_stat
+  delegate_to: localhost
+- name: Store backup checksum
+  ansible.builtin.copy:
+    content: "{{ cisco_backup_stat.stat.checksum }}  {{ cisco_backup_filename }}\n"
+    dest: "{{ rog_backup_root }}/{{ cisco_backup_filename }}.sha256"
+    mode: '0600'
+  delegate_to: localhost
+- name: Report the actual backup artifact path
+  ansible.builtin.debug:
+    msg: "Saved {{ rog_backup_root }}/{{ cisco_backup_filename }} and SHA256 sidecar."

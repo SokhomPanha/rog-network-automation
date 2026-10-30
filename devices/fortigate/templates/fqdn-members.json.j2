@@ -1,0 +1,5 @@
+[
+{% for item in fortigate_staff_fqdn_objects %}
+  {"name": {{ item.name | to_json }}}{{ ',' if not loop.last else '' }}
+{% endfor %}
+]

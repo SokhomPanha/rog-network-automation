@@ -1,0 +1,285 @@
+{
+  "generated_utc": "2026-09-27T17:23:34.075067+00:00",
+  "scope": "Offline only; authoritative inventory graph and syntax on actual source files. Encrypted Vault values are not evaluated. No device/browser/RF verification.",
+  "yaml_and_jinja_files": [
+    "devices/core-switch/backup.yml",
+    "devices/core-switch/configure.yml",
+    "devices/core-switch/staff_hotspot_architecture.yml",
+    "devices/core-switch/templates/baseline.j2",
+    "devices/core-switch/templates/staff_hotspot_acl.j2",
+    "devices/core-switch/vars.yml",
+    "devices/core-switch/verify.yml",
+    "devices/fortigate/backup.yml",
+    "devices/fortigate/configure.yml",
+    "devices/fortigate/tasks/monitoring.yml",
+    "devices/fortigate/tasks/preflight.yml",
+    "devices/fortigate/tasks/rollback.yml",
+    "devices/fortigate/tasks/staff_filter.yml",
+    "devices/fortigate/tasks/static_url.yml",
+    "devices/fortigate/tasks/verify_filter.yml",
+    "devices/fortigate/templates/fqdn-members.json.j2",
+    "devices/fortigate/templates/fqdn-objects.json.j2",
+    "devices/fortigate/templates/staff-filter-before.json.j2",
+    "devices/fortigate/templates/url-entries.json.j2",
+    "devices/fortigate/vars.yml",
+    "devices/fortigate/verify.yml",
+    "devices/mikrotik/backup.yml",
+    "devices/mikrotik/configure.yml",
+    "devices/mikrotik/guest_portal.yml",
+    "devices/mikrotik/guest_voucher.yml",
+    "devices/mikrotik/snmp.yml",
+    "devices/mikrotik/staff_hotspot.yml",
+    "devices/mikrotik/staff_hotspot_architecture.yml",
+    "devices/mikrotik/staff_hotspot_rollback.yml",
+    "devices/mikrotik/tasks/dhcp.yml",
+    "devices/mikrotik/tasks/hotspot.yml",
+    "devices/mikrotik/tasks/ip_addresses.yml",
+    "devices/mikrotik/tasks/pools.yml",
+    "devices/mikrotik/tasks/routing.yml",
+    "devices/mikrotik/tasks/security.yml",
+    "devices/mikrotik/tasks/vlans.yml",
+    "devices/mikrotik/vars.yml",
+    "devices/mikrotik/verify.yml",
+    "devices/wlc/backup.yml",
+    "devices/wlc/configure.yml",
+    "devices/wlc/templates/baseline.j2",
+    "devices/wlc/vars.yml",
+    "devices/wlc/verify.yml",
+    "devices/zabbix/backup.yml",
+    "devices/zabbix/configure.yml",
+    "devices/zabbix/vars.yml",
+    "devices/zabbix/verify.yml",
+    "inventory/group_vars/all/main.yml",
+    "inventory/group_vars/core_switch/main.yml",
+    "inventory/group_vars/fortigate/main.yml",
+    "inventory/group_vars/mikrotik/main.yml",
+    "inventory/group_vars/wireless_ac/main.yml",
+    "inventory/hosts.yml",
+    "inventory/vault.example.yml",
+    "requirements.yml",
+    "shared/backup.yml",
+    "shared/tasks/cisco_backup.yml",
+    "shared/tasks/cisco_verify.yml",
+    "shared/verify.yml"
+  ],
+  "encrypted_vaults_preserved_not_decrypted": [
+    "inventory/group_vars/core_switch/vault.yml",
+    "inventory/group_vars/fortigate/vault.yml",
+    "inventory/group_vars/mikrotik/vault.yml",
+    "inventory/group_vars/wireless_ac/vault.yml"
+  ],
+  "checks": [
+    {
+      "check": "authoritative inventory graph",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "@all:\n  |--@ungrouped:\n  |--@fortigate:\n  |  |--FGT-ROG-TOWER\n  |--@mikrotik:\n  |  |--MT-HOTSPOT\n  |--@core_switch:\n  |  |--CORE-SW\n  |--@wireless_ac:\n  |  |--WLC-ROG-TOWER\n  |--@monitoring:\n  |  |--ZABBIX"
+    },
+    {
+      "check": "syntax devices/core-switch/backup.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/core-switch/backup.yml"
+    },
+    {
+      "check": "syntax devices/core-switch/configure.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/core-switch/configure.yml"
+    },
+    {
+      "check": "syntax devices/core-switch/staff_hotspot_architecture.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/core-switch/staff_hotspot_architecture.yml"
+    },
+    {
+      "check": "syntax devices/core-switch/verify.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/core-switch/verify.yml"
+    },
+    {
+      "check": "syntax devices/fortigate/backup.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/fortigate/backup.yml"
+    },
+    {
+      "check": "syntax devices/fortigate/configure.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/fortigate/configure.yml"
+    },
+    {
+      "check": "syntax devices/fortigate/verify.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/fortigate/verify.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/backup.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/backup.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/configure.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/configure.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/guest_portal.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/guest_portal.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/guest_voucher.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/guest_voucher.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/snmp.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/snmp.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/staff_hotspot.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/staff_hotspot.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/staff_hotspot_architecture.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/staff_hotspot_architecture.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/staff_hotspot_rollback.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/staff_hotspot_rollback.yml"
+    },
+    {
+      "check": "syntax devices/mikrotik/verify.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/mikrotik/verify.yml"
+    },
+    {
+      "check": "syntax devices/wlc/backup.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/wlc/backup.yml"
+    },
+    {
+      "check": "syntax devices/wlc/configure.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/wlc/configure.yml"
+    },
+    {
+      "check": "syntax devices/wlc/verify.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/wlc/verify.yml"
+    },
+    {
+      "check": "syntax devices/zabbix/backup.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/zabbix/backup.yml"
+    },
+    {
+      "check": "syntax devices/zabbix/configure.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/zabbix/configure.yml"
+    },
+    {
+      "check": "syntax devices/zabbix/verify.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/devices/zabbix/verify.yml"
+    },
+    {
+      "check": "syntax shared/backup.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/shared/backup.yml"
+    },
+    {
+      "check": "syntax shared/verify.yml",
+      "status": "PASS",
+      "returncode": 0,
+      "output": "playbook: /home/sudoku/rog-network-automation/shared/verify.yml"
+    }
+  ],
+  "errors": [],
+  "source_sha256": {
+    "devices/core-switch/backup.yml": "8a3c298302584891545571c126ccccb79d615c0db775189629feb3815f247853",
+    "devices/core-switch/configure.yml": "29baf1beb0910302a94cbd805a2563436330d7b248f3f4c645b3c7c285b523f4",
+    "devices/core-switch/staff_hotspot_architecture.yml": "e79108572f89ea0146923922b5f6c8df446904e6534e4fd20d1c759f3f03cb67",
+    "devices/core-switch/templates/baseline.j2": "46b2453f87f23f9a5d7e15db3fced937180133b7ca8ab6822292cea9dd3bf445",
+    "devices/core-switch/templates/staff_hotspot_acl.j2": "bfc6c75d888c784488d133808fc94df6050450b4e97cad8862042b229fd19bf3",
+    "devices/core-switch/vars.yml": "41e2644af6ceb5f6082b5f46e66ea67e7fb8d1f9d0aba65e0ec2198ded40a52e",
+    "devices/core-switch/verify.yml": "c520dbec2d4459622687e5183efc8f6f1cb1294ae11ec9aaef868e043b24defc",
+    "devices/fortigate/backup.yml": "8c6754458771a48c53d06ff9a7600617a2a10cd155a3012568bb5c6127022da6",
+    "devices/fortigate/configure.yml": "f05cc8ed0b8234cfeb00c03c86926381a586fb7b909709b3773a511222c4b221",
+    "devices/fortigate/tasks/monitoring.yml": "29ac5a6d0ce8e496938917dc35400ccd6d79b594eec2b5d4bdec94a05da20530",
+    "devices/fortigate/tasks/preflight.yml": "69477bf055a7601a6251d080a55c56fc5827b5b332401e547596dd61305ca3eb",
+    "devices/fortigate/tasks/rollback.yml": "d8193a59b06c8ed5d25c46fc5160b09ab573651efd5a4786ded219b922f9e8cf",
+    "devices/fortigate/tasks/staff_filter.yml": "9619904ae17f9010034ae5197c2ba2bfac605c6223579a89613d743cbf446d3b",
+    "devices/fortigate/tasks/static_url.yml": "32b6b12b70758937a0d660564d3a2e80ddfa770cc2df273b43e4f07945d4c57d",
+    "devices/fortigate/tasks/verify_filter.yml": "7c4abd2d0fdbcf797172e48f74cc13a0cc1f3094ec1c448ca06602270209a17c",
+    "devices/fortigate/templates/fqdn-members.json.j2": "6d16a0fac342a9080eb5844406fa6f1f04a90b3a39ae79b14b1a9a76961ed54d",
+    "devices/fortigate/templates/fqdn-objects.json.j2": "02ae83dd73aad4e96a62bc0cfbe42a5c9ae0eeadc0007a44a36d074149f5cd1d",
+    "devices/fortigate/templates/staff-filter-before.json.j2": "82b31a53574ef53bb04e9c5b253d3f3d4e7c530a8cfde28d3e11d66f6f68c2f5",
+    "devices/fortigate/templates/url-entries.json.j2": "b4808da755b2d78b499753a4b72ca64a17a02af30ac0850695faac60e0f97428",
+    "devices/fortigate/vars.yml": "cb2233265df3872fa7f2a6d330da05bb4c48b5d5e5eb8e79cf4b97cbf59d3a28",
+    "devices/fortigate/verify.yml": "b1dd7037665407bb4faab815e37cc4eff9511b5d141b6400f85901fb782ad8ab",
+    "devices/mikrotik/backup.yml": "789fffaf2be49195a80aaf5dcd2cc37b767768c0312bca35667b591f68c4ef6b",
+    "devices/mikrotik/configure.yml": "4213693545e62cc432e8893070770d8242fead772bc909af78c12c9f708f2a6b",
+    "devices/mikrotik/guest_portal.yml": "8ffca510ff7acae9e8d3af4835ea7dc2d274cadc88e090dce22410aa1b95f2fe",
+    "devices/mikrotik/guest_voucher.yml": "ffad013ec1ac79bef1f57222ecf8f1a8f0529286a9ea6247425052c6d86d5be3",
+    "devices/mikrotik/snmp.yml": "658f1ef442f06b66f9efad6a6619f6ee6860a2c61af2893a337c8a38566cd120",
+    "devices/mikrotik/staff_hotspot.yml": "51dff90ffa5604537bbbfbe31628a2d47006ca4469baf9f3f211bc34854ea73c",
+    "devices/mikrotik/staff_hotspot_architecture.yml": "d982f5c8a737fe5aab310ed40e71edd9a718d84875a634a28dfa3514193860a9",
+    "devices/mikrotik/staff_hotspot_rollback.yml": "dfe256b277b6746c382c557319088b55494793f0f498b05edfb7c6d2f82c5faf",
+    "devices/mikrotik/tasks/dhcp.yml": "1ec7ab12ef20568a9b423cbbef771e0af80dfbf8abae344638d40fcece17be02",
+    "devices/mikrotik/tasks/hotspot.yml": "feeae694814607e6498032b6659e97781e0823657880802f73822486531be025",
+    "devices/mikrotik/tasks/ip_addresses.yml": "85cb7ae40a2386c18a7426410b5a255ef1787d05d011e980e7c86832d7ac1918",
+    "devices/mikrotik/tasks/pools.yml": "bec12c23468484e30ade4dc60c7dac2e17da316ce59cee25d2f51f436208780a",
+    "devices/mikrotik/tasks/routing.yml": "9d278edd834fd5c53feaad4ef8b34becf2e1fc8b4ff9b59d79e9d1b0e74d0195",
+    "devices/mikrotik/tasks/security.yml": "d533bdc1efa30033a7a823a8de1d884d5ef5f36b6789e84a3a9c5a45bb10f90d",
+    "devices/mikrotik/tasks/vlans.yml": "2bd5ce26e7674c807da730cfa357f7d7968198743439f0f11d128fb2733a41b8",
+    "devices/mikrotik/vars.yml": "6f7c76b1f1da173161abe5fcf3f5ec9ae47b1b05931cce34c6804c3303e5aa17",
+    "devices/mikrotik/verify.yml": "c87809785ba27979a36e251764af8f4ceae3f83cda22fd1973222f977163e895",
+    "devices/wlc/backup.yml": "b88c82c271666974c09655a877f206451348077fcdde77f3629af9dc860f0ae2",
+    "devices/wlc/configure.yml": "a3da4c78e40c4b6c7df9912552cb1d5d9a88558bdb44128213c4365a5dec603c",
+    "devices/wlc/templates/baseline.j2": "abb785dba9a2b7788eec0ad90e985618f7a77a2ca8577c86c186f1e48bef013f",
+    "devices/wlc/vars.yml": "826bab67518d9a6f5c45ab4694321934665a0b5bd75a9ae36dd232c6260b9d87",
+    "devices/wlc/verify.yml": "878b941746b10e9ad273bf48070a4cb4468f12883067b90e8a9b875a5dd1df13",
+    "devices/zabbix/backup.yml": "5634cb8d5ded73bb3ffbf005a8661667aedc82c7d7e13c46c12f22e10f0b32ef",
+    "devices/zabbix/configure.yml": "f144d136ed122fd1b4e87bdf46419402c477371f5b8ea1ae85c07e7a3aa43bcb",
+    "devices/zabbix/vars.yml": "294016e332ff599ceb5f314927321b1b2d7555c4c723980e021643048c92e792",
+    "devices/zabbix/verify.yml": "f6c7b4642d9dbd97e511545b945764e357509766733a55f347084031b788147a",
+    "inventory/group_vars/all/main.yml": "35a4b8875aa87b1aa34a145be8c87ced6c84f88fc382be4908873c7e99628788",
+    "inventory/group_vars/core_switch/main.yml": "f98f9d8cba18a654cedc810354a8a06e96c1fcc368b460898e937313ca797c46",
+    "inventory/group_vars/fortigate/main.yml": "826cb7653c9d18a1f3657fc7aba5aac9c704d9e6fadfc003d311d6755778e072",
+    "inventory/group_vars/mikrotik/main.yml": "17c49ab65296cc7d5dd532418cbbd14230fc8f8198e94e0e87f62e0a10e9a631",
+    "inventory/group_vars/wireless_ac/main.yml": "2a4f896d006fa6956b113d7e18b363812e33368a82e2b1a9f71432e15d90acd0",
+    "inventory/hosts.yml": "3a121c11ac87698773fb91736694202db27ddf0515230bd9c8387b3603e9875b",
+    "inventory/vault.example.yml": "07506c4774b49d7dcbbd40a786e883a3d0924dd84f5cde762d35e29dbc0400b8",
+    "requirements.yml": "1367ae417f69a8f28f6a6d1f1a5afca9ec0fa1e49c1eac9229390db10b4f4d05",
+    "shared/backup.yml": "dcaa51aed6c0c827d1dbb53aa3e83293737f059cb93a902fcadbc3bef5ad7d8d",
+    "shared/tasks/cisco_backup.yml": "44f29784669f53cff13a6c94bba818e8239604ded595c7858445f6b4966dc347",
+    "shared/tasks/cisco_verify.yml": "7d37d4a248acf9ca7a60d173d705cacd29fd6b49d17f364b83dff21046bfcb8e",
+    "shared/verify.yml": "25f2c7e146c6e3f07cbe32acffb2276cb51f304ac6fe3cfc3b67987f59cb6bcf"
+  }
+}

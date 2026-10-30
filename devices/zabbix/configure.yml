@@ -1,0 +1,15 @@
+---
+- name: Preserve the externally configured monitoring server
+  hosts: monitoring
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Report the source boundary
+      ansible.builtin.debug:
+        msg: >-
+          No server provisioning, database, Telegram, syslog receiver or NTP
+          server configuration was supplied in the original repository.
+          Existing services are preserved. Configure no replacement services
+          until their actual configuration and database have been backed up.
+      tags: [monitoring]

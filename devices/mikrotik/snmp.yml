@@ -1,0 +1,39 @@
+---
+- name: Maintain MikroTik monitoring
+  hosts: mikrotik
+  gather_facts: false
+  vars_files:
+  - vars.yml
+  pre_tasks:
+  - name: Require explicit authorization before any device connection
+    ansible.builtin.assert:
+      that:
+      - rog_allow_live_changes | default(false) | bool
+      - not ansible_check_mode
+      fail_msg: Live changes are disabled. Review the device README and deployment runbook.
+    tags:
+    - always
+  tasks:
+  - name: Require protected SNMP community
+    ansible.builtin.assert:
+      that:
+      - vault_snmp_community is defined
+      - vault_snmp_community | length > 0
+    no_log: true
+  - name: Enable SNMP device information
+    community.routeros.command:
+      commands:
+      - /snmp set enabled=yes contact=NETWORK-ADMINISTRATOR location=ROG-TOWER-NETWORK-LAB
+    changed_when: true
+  - name: Configure monitoring-only SNMP access
+    community.routeros.command:
+      commands:
+      - :if ([:len [/snmp community find where name={{ vault_snmp_community | community.routeros.quote_argument_value
+        }}]] = 0) do={ /snmp community add name={{ vault_snmp_community | community.routeros.quote_argument_value
+        }} addresses=192.168.60.10/32 read-access=yes write-access=no } else={ /snmp community set [find where name={{
+        vault_snmp_community | community.routeros.quote_argument_value }}] addresses=192.168.60.10/32 read-access=yes
+        write-access=no }
+    changed_when: true
+    no_log: true
+  tags:
+  - monitoring

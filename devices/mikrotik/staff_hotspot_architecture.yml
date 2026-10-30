@@ -1,0 +1,159 @@
+---
+- name: Activate the explicitly approved Staff gateway path
+  hosts: mikrotik
+  gather_facts: false
+  vars_files:
+  - vars.yml
+  tags:
+  - never
+  - staff_hotspot_architecture_change
+  pre_tasks:
+  - name: Require both the named tag and explicit change authorization
+    ansible.builtin.assert:
+      that:
+      - rog_allow_live_changes | default(false) | bool
+      - enable_staff_hotspot_architecture_change | bool
+      - '"staff_hotspot_architecture_change" in ansible_run_tags'
+      - not ansible_check_mode
+      fail_msg: Review docs/STAFF_HOTSPOT_ARCHITECTURE.md before opting into this operation.
+    tags:
+    - always
+  tasks:
+  - name: Require recorded Core routing and client preflight review
+    ansible.builtin.assert:
+      that:
+      - staff_hotspot_core_cutover_confirmed | bool
+      - staff_hotspot_preflight_confirmed | bool
+      fail_msg: Verify Core anti-bypass ACL, transit isolation, two /25 return routes, IPv6 policy, client leases
+        and read-only preflight before cutover.
+  - name: Read Staff activation prerequisites
+    community.routeros.command:
+      commands:
+      - /ip hotspot print count-only where name={{ staff_hotspot_server | community.routeros.quote_argument_value
+        }}
+      - /ip hotspot user print count-only where server={{ staff_hotspot_server | community.routeros.quote_argument_value
+        }} and disabled=no
+      - /ip hotspot user print count-only where server="all" and disabled=no
+      - /ip firewall filter print count-only where action=fasttrack-connection and disabled=no
+      - /ip hotspot ip-binding print count-only where type=bypassed and server!="guest-hotspot"
+      - /ip hotspot walled-garden print count-only where server!="guest-hotspot"
+      - /ip hotspot walled-garden ip print count-only where server!="guest-hotspot"
+      - /ip dhcp-server network print count-only where address="192.168.20.0/24"
+      - /ip hotspot print count-only where name="guest-hotspot" and disabled=no
+      - /ip route print count-only where dst-address=0.0.0.0/0 and gateway=192.168.99.1 and disabled=no
+      - /ip dns print
+    changed_when: false
+    register: staff_preflight
+    no_log: true
+  - name: Extract RouterOS preflight count values
+    ansible.builtin.set_fact:
+      staff_service_count: "{{ staff_preflight.stdout[0] | regex_findall('[0-9]+') | last | int }}"
+      staff_enabled_user_count: "{{ staff_preflight.stdout[1] | regex_findall('[0-9]+') | last | int }}"
+      staff_all_server_count: "{{ staff_preflight.stdout[2] | regex_findall('[0-9]+') | last | int }}"
+      staff_fasttrack_count: "{{ staff_preflight.stdout[3] | regex_findall('[0-9]+') | last | int }}"
+      staff_binding_bypass_count: "{{ staff_preflight.stdout[4] | regex_findall('[0-9]+') | last | int }}"
+      staff_walled_garden_count: "{{ staff_preflight.stdout[5] | regex_findall('[0-9]+') | last | int }}"
+      staff_walled_garden_ip_count: "{{ staff_preflight.stdout[6] | regex_findall('[0-9]+') | last | int }}"
+      staff_dhcp_network_count: "{{ staff_preflight.stdout[7] | regex_findall('[0-9]+') | last | int }}"
+      guest_hotspot_enabled_count: "{{ staff_preflight.stdout[8] | regex_findall('[0-9]+') | last | int }}"
+      staff_default_route_count: "{{ staff_preflight.stdout[9] | regex_findall('[0-9]+') | last | int }}"
+
+  - name: Reject missing service or unreviewed authentication bypasses
+    ansible.builtin.assert:
+      that:
+        - staff_service_count == 1
+        - staff_enabled_user_count > 0
+        - staff_all_server_count == 0
+        - staff_fasttrack_count == 0
+        - staff_binding_bypass_count == 0
+        - staff_walled_garden_count == 0
+        - staff_walled_garden_ip_count == 0
+        - staff_dhcp_network_count == 1
+        - guest_hotspot_enabled_count == 1
+        - staff_default_route_count > 0
+        - '"allow-remote-requests: yes" in staff_preflight.stdout[10]'
+      fail_msg: Preflight failed. Review wildcard Hotspot users, FastTrack, global walled-garden/bypassed clients, Guest state, DNS and routing; do not disable Guest safeguards.
+  - name: Create dedicated Staff isolation destinations
+    community.routeros.command:
+      commands:
+      - :if ([:len [/ip firewall address-list find where list="ROG-STAFF-PROTECTED" and address="{{ item }}"]] =
+        0) do={ /ip firewall address-list add list=ROG-STAFF-PROTECTED address="{{ item }}" comment="ROG Staff isolation"
+        }
+    changed_when: true
+    loop: '{{ staff_protected_subnets }}'
+  - name: Create the dedicated Staff forward chain
+    community.routeros.command:
+      commands:
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-INVALID"]] = 0) do={ /ip firewall filter add
+        chain=ROG-STAFF-FORWARD action=drop connection-state=invalid comment=ROG-STAFF-INVALID }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-SOURCE"]] = 0) do={ /ip firewall filter add
+        chain=ROG-STAFF-FORWARD action=drop src-address=!192.168.20.0/24 comment=ROG-STAFF-SOURCE }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-PROTECTED"]] = 0) do={ /ip firewall filter
+        add chain=ROG-STAFF-FORWARD action=drop dst-address-list=ROG-STAFF-PROTECTED log=yes log-prefix="ROG-STAFF-DROP
+        " comment=ROG-STAFF-PROTECTED }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-AUTHORIZED"]] = 0) do={ /ip firewall filter
+        add chain=ROG-STAFF-FORWARD action=return hotspot=auth comment=ROG-STAFF-AUTHORIZED }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-UNAUTHENTICATED"]] = 0) do={ /ip firewall
+        filter add chain=ROG-STAFF-FORWARD action=drop comment=ROG-STAFF-UNAUTHENTICATED }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-ENFORCE"]] = 0) do={ /ip firewall filter add
+        chain=forward in-interface=vlan200-ground action=jump jump-target=ROG-STAFF-FORWARD comment=ROG-STAFF-ENFORCE
+        }
+      - /ip firewall filter move [find where comment="ROG-STAFF-ENFORCE"] destination=0
+    changed_when: true
+  - name: Restrict Staff router access to DHCP DNS and the actual portal
+    community.routeros.command:
+      commands:
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-DHCP"]] = 0) do={ /ip firewall filter add
+        chain=ROG-STAFF-INPUT action=accept protocol=udp dst-port=67,68 comment=ROG-STAFF-DHCP }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-DNS-UDP"]] = 0) do={ /ip firewall filter add
+        chain=ROG-STAFF-INPUT action=accept src-address=192.168.20.0/24 protocol=udp dst-port=53,64872 comment=ROG-STAFF-DNS-UDP
+        }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-PORTAL"]] = 0) do={ /ip firewall filter add
+        chain=ROG-STAFF-INPUT action=accept src-address=192.168.20.0/24 protocol=tcp dst-port=53,64872-64875 comment=ROG-STAFF-PORTAL
+        }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-ROUTER-DROP"]] = 0) do={ /ip firewall filter
+        add chain=ROG-STAFF-INPUT action=drop comment=ROG-STAFF-ROUTER-DROP }
+      - :if ([:len [/ip firewall filter find where comment="ROG-STAFF-INPUT-ENFORCE"]] = 0) do={ /ip firewall filter
+        add chain=input in-interface=vlan200-ground action=jump jump-target=ROG-STAFF-INPUT comment=ROG-STAFF-INPUT-ENFORCE
+        }
+      - /ip firewall filter move [find where comment="ROG-STAFF-INPUT-ENFORCE"] destination=0
+    changed_when: true
+  - name: Prevent IPv6 from bypassing the IPv4-only Staff Hotspot
+    community.routeros.command:
+      commands:
+      - :if ([:len [/ipv6 firewall filter find where comment="ROG-STAFF-IPV6-FORWARD"]] = 0) do={ /ipv6 firewall
+        filter add chain=forward in-interface=vlan200-ground action=drop comment=ROG-STAFF-IPV6-FORWARD }
+      - :if ([:len [/ipv6 firewall filter find where comment="ROG-STAFF-IPV6-INPUT"]] = 0) do={ /ipv6 firewall filter
+        add chain=input in-interface=vlan200-ground action=drop comment=ROG-STAFF-IPV6-INPUT }
+      - /ipv6 firewall filter move [find where comment="ROG-STAFF-IPV6-FORWARD"] destination=0
+      - /ipv6 firewall filter move [find where comment="ROG-STAFF-IPV6-INPUT"] destination=0
+    changed_when: true
+  - name: Preserve Staff source addresses for FortiGate filtering
+    community.routeros.command:
+      commands:
+      - :if ([:len [/ip firewall nat find where comment="ROG-STAFF-NO-SRCNAT"]] = 0) do={ /ip firewall nat add chain=srcnat
+        src-address=192.168.20.0/24 out-interface=vlan900-transit action=accept comment=ROG-STAFF-NO-SRCNAT }
+      - /ip firewall nat move [find where comment="ROG-STAFF-NO-SRCNAT"] destination=0
+    changed_when: true
+  - name: Activate the prepared Staff service before clients change gateway
+    community.routeros.command:
+      commands:
+      - /ip hotspot enable [find where name={{ staff_hotspot_server | community.routeros.quote_argument_value }}]
+    changed_when: true
+  - name: Change only Staff DHCP gateway and DNS to the inline Hotspot
+    community.routeros.command:
+      commands:
+      - /ip dhcp-server network set [find where address="192.168.20.0/24"] gateway=192.168.20.2 dns-server=192.168.20.2
+    changed_when: true
+  - name: Read resulting Staff and Guest service state
+    community.routeros.command:
+      commands:
+      - /ip dhcp-server network print detail where address="192.168.20.0/24"
+      - /ip hotspot print detail without-paging
+      - /ip firewall filter print stats where comment~"ROG-STAFF"
+    changed_when: false
+    register: staff_cutover
+  - name: Require real endpoint verification after the maintenance window
+    ansible.builtin.debug:
+      msg: Renew Staff DHCP leases and follow STAFF_HOTSPOT_TEST.md. Configuration completion is not proof of authenticated
+        Internet access.
