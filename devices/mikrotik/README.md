@@ -1,7 +1,7 @@
 # MikroTik automation
 
 **Device:** `MT-HOTSPOT`  
-**Management:** `192.168.71.157`
+**Management:** `192.168.71.xxx`
 
 The MikroTik keeps the existing Guest Hotspot on VLAN 500 and contains a guarded,
 disabled-by-default Staff Hotspot design for VLAN 200 (`staff-vlan`). Its

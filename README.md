@@ -7,15 +7,14 @@ features still require a controlled lab deployment and real client tests.
 
 | Device | Management | Role |
 | --- | --- | --- |
-| CORE-SW | 192.168.71.155 | Inter-VLAN routing, Staff ACL, LACP Port-channel10 |
-| FGT-ROG-TOWER | 192.168.71.158 | FortiOS 7.6.2 EVAL, NAT, dual WAN, SD-WAN |
-| MT-HOTSPOT | 192.168.71.157 | Guest Hotspot, DHCP, prepared Staff Hotspot |
-| WLC-ROG-TOWER | 192.168.71.156 | Wireless management 192.168.10.2, WLAN mappings |
-| ZABBIX | 192.168.71.159 | Monitoring 192.168.60.10; existing external services |
+| CORE-SW | 192.168.71.xxx | Inter-VLAN routing, Staff ACL, LACP Port-channel10 |
+| FGT-ROG-TOWER | 192.168.71.xxx | FortiOS 7.6.2 EVAL, NAT, dual WAN, SD-WAN |
+| MT-HOTSPOT | 192.168.71.xxx | Guest Hotspot, DHCP, prepared Staff Hotspot |
+| WLC-ROG-TOWER | 192.168.71.xxx | Wireless management 192.168.10.2, WLAN mappings |
+| ZABBIX | 192.168.71.xxx | Monitoring 192.168.60.10; existing external services |
 
 | VLAN | Purpose | Network | Gateway |
 | --- | --- | --- | --- |
-| 71 | Management / out-of-band | 192.168.71.0/24 | Existing management routing preserved |
 | 100 | Wireless / AP management | 192.168.10.0/24 | Core 192.168.10.1 |
 | 200 | staff-vlan (Staff) | 192.168.20.0/24 | Core 192.168.20.1 before optional cutover |
 | 500 | Guest | 192.168.50.0/24 | MikroTik 192.168.50.1 |

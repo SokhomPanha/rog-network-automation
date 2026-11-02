@@ -1,6 +1,6 @@
 # Core switch
 
-`CORE-SW` remains at `192.168.71.155`, using the existing IOS network CLI connection with Paramiko. The baseline follows the saved 22 September configuration: Staff gateway `192.168.20.1`, wireless management gateway `192.168.10.1`, monitoring gateway `192.168.60.1`, transit `192.168.99.1`, Staff ACL, default route to FortiGate `192.168.71.158`, Guest route through MikroTik, and LACP Port-channel10 on Gi1/0 and Gi1/3. Member ports are never reset to defaults.
+`CORE-SW` remains at `192.168.71.xxx`, using the existing IOS network CLI connection with Paramiko. The baseline follows the saved 22 September configuration: Staff gateway `192.168.20.1`, wireless management gateway `192.168.10.1`, monitoring gateway `192.168.60.1`, transit `192.168.99.1`, Staff ACL, default route to FortiGate `192.168.71.xxx`, Guest route through MikroTik, and LACP Port-channel10 on Gi1/0 and Gi1/3. Member ports are never reset to defaults.
 
 VLAN 200 has the display name `staff-vlan`; its SVI remains `Vlan200`.
 

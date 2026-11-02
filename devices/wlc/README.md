@@ -1,6 +1,6 @@
 # Cisco C9800-CL wireless controller
 
-`WLC-ROG-TOWER` uses management `192.168.71.156` and wireless management Vlan100 `192.168.10.2`. The existing network CLI/libssh connection and SSH key authentication remain in inventory. On the saved device, OOB management is on **Vlan1**, despite the management subnet being called VLAN71 elsewhere; the baseline preserves that detail and the existing default route via `192.168.71.1`.
+`WLC-ROG-TOWER` uses management `192.168.71.xxx` and wireless management Vlan100 `192.168.10.2`. The existing network CLI/libssh connection and SSH key authentication remain in inventory. On the saved device, OOB management is on **Vlan1**, despite the management subnet being called VLAN71 elsewhere; the baseline preserves that detail and the existing default route via `192.168.71.x`.
 
 The newer `20260909T061248Z` operational evidence supersedes the older full WLC backup for WLAN state: `ROG_STAFF_WIFI`, WLAN ID5, maps to `ROG-STAFF-POLICY`/VLAN200; `ROG-GUEST`, ID4, maps to `ROG-GUEST-POLICY`/VLAN500. Guest Layer 2 remains open for its MikroTik captive portal; Staff retains its vaulted WPA2 PSK. The new Staff Hotspot provides an additional login in the data path, without inventing a WLAN web-auth configuration.
 

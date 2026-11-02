@@ -1,6 +1,6 @@
 # Zabbix / monitoring server
 
-Management/web: `192.168.71.159`; monitoring: `192.168.60.10`.
+Management/web: `192.168.71.xxx`; monitoring: `192.168.60.10`.
 The original repository contained device SNMP provisioning but no Zabbix server,
 database, syslog receiver, Telegram, NTP server or scheduler implementation.
 Their live state is unknown; existing external services are preserved.

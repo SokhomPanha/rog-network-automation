@@ -1,6 +1,6 @@
 # FortiGate — ROG Tower Internet gateway
 
-The saved 22 September configuration is the baseline: management/internal `192.168.71.158` on `port3`, HTTPAPI HTTPS port `8443`, WAN `port1` and `port2` in `virtual-wan-link`, and three EVAL firewall policies. The old inventory's `.153` address was stale. Inventory correction changes the controller target only.
+The saved 22 September configuration is the baseline: management/internal `192.168.71.xxx` on `port3`, HTTPAPI HTTPS port `8443`, WAN `port1` and `port2` in `virtual-wan-link`, and three EVAL firewall policies. The old inventory's `.153` address was stale. Inventory correction changes the controller target only.
 
 | Policy | Source | Existing behavior |
 | --- | --- | --- |
